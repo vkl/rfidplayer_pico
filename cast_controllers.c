@@ -2,17 +2,9 @@
 #include "casts.h"
 #include "messages.h"
 
-struct Message *ping();
-struct Message *pong();
-struct Message *getStatus(uint16_t requestId);
-struct Message *connect(uint16_t requestId);
-struct Message *receiverStatus(char *sessionId, uint16_t requestId);
-struct Message *launch(char *appId, uint16_t requestId);
-struct Message *mediaStatus(char *sessionId, uint16_t requestId);
-struct Message *load(char *appId, uint16_t requestId, char *contentId, char *streamType, char *contentType);
 
-
-void processingData(struct CastConnectionState *self, unsigned char *data) {
+void processingData(struct CastConnectionState **self, unsigned char *data) {
+    struct CastConnectionState *ccs = *self;
     Api__CastMessage *cast_msg;
     size_t len = (data[0]<<24) | (data[1]<<16) | (data[2]<<8) | data[3];
     cast_msg = api__cast_message__unpack(NULL, len, &data[4]);
@@ -33,11 +25,11 @@ void processingData(struct CastConnectionState *self, unsigned char *data) {
     const cJSON *type = NULL;
     type = cJSON_GetObjectItemCaseSensitive(payload, "type");
     if (strcmp(type->valuestring, "PONG") == 0) {
-        self->pingCount--;
+        ccs->pingCount--;
     } else if (strcmp(type->valuestring, "PING") == 0) {
-        addMessage(self, pong());
+        addMessage(ccs, PONG);
     } else if (strcmp(type->valuestring, "RECEIVER_STATUS") == 0) {
-        self->receiverId = DEFAULT_DESTINATION_ID;
+        // ccs->receiverId = DEFAULT_DESTINATION_ID;
         cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
         if (status == NULL) goto done;
         cJSON *apps = cJSON_GetObjectItemCaseSensitive(status, "applications");
@@ -46,13 +38,15 @@ void processingData(struct CastConnectionState *self, unsigned char *data) {
         if (app == NULL) goto done;
         cJSON *sessionId = cJSON_GetObjectItem(app, "sessionId");
         if (sessionId != NULL) {
-            if (strcmp(self->receiverId, sessionId->valuestring) == 0) {
+            DEBUG_PRINT("receiverId %s\n", ccs->receiverId);
+            DEBUG_PRINT("sessionId %s\n", sessionId->valuestring);
+            if (strcmp(ccs->receiverId, sessionId->valuestring) == 0) {
                 goto done;
             }
-            self->receiverId = malloc(strlen(sessionId->valuestring) + 1);
-            if (self->receiverId != NULL) {
-                strcpy(self->receiverId, sessionId->valuestring);
-                addMessage(self, connect(self->requestId));
+            ccs->receiverId = malloc(strlen(sessionId->valuestring) + 1);
+            if (ccs->receiverId != NULL) {
+                strcpy(ccs->receiverId, sessionId->valuestring);
+                addMessage(ccs, CONNECT);
             }
         }
     }
@@ -60,218 +54,69 @@ done:
     cJSON_Delete(payload);
 }
 
-struct Message *ping() {
+void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) {
     Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = HEARTBEAT_NS;
     cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, PING_);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, PING_);
+    size_t n;
+    switch (msgType) {
+    case PING:
+        cast_msg.namespace_ = HEARTBEAT_NS;
+        cast_msg.payload_utf8 = PING_PAYLOAD;
+        cast_msg.destination_id = DEFAULT_DESTINATION_ID;
+        break;
+    case PONG:
+        cast_msg.namespace_ = HEARTBEAT_NS;
+        cast_msg.payload_utf8 = PONG_PAYLOAD;
+        cast_msg.destination_id = DEFAULT_DESTINATION_ID;
+        break;
+    case CONNECT:
+        cast_msg.namespace_ = CONNECTION_NS;
+        cast_msg.payload_utf8 = CONNECT_PAYLOAD;
+        cast_msg.destination_id = self->receiverId;
+        break;
+    case GET_STATUS:
+        cast_msg.namespace_ = RECEIVER_NS;
+        n = sprintf(NULL, GET_STATUS_PAYLOAD, self->requestId);
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        if (cast_msg.payload_utf8 == NULL) {
+            DEBUG_PRINT("malloc error");
+            return;
+        }
+        sprintf(cast_msg.payload_utf8, GET_STATUS_PAYLOAD, self->requestId);
+        self->requestId++;
+        break;
+    case LAUNCH:
+        cast_msg.namespace_ = RECEIVER_NS;
+        n = sprintf(NULL, LAUNCH_PAYLOAD, self->requestId, self->appId);
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        if (cast_msg.payload_utf8 == NULL) {
+            DEBUG_PRINT("malloc error");
+            return;
+        }
+        sprintf(cast_msg.payload_utf8, LAUNCH_PAYLOAD, self->requestId, self->appId);
+    }
     cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
     cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
     DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
     size_t size = api__cast_message__get_packed_size(&cast_msg);
     unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
+    if (packed == NULL) {
+        DEBUG_PRINT("malloc error");
+        return;
     }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *pong() {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = HEARTBEAT_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, PONG_);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, PONG_);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *getStatus(uint16_t requestId) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = RECEIVER_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, GET_STATUS_, requestId);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, GET_STATUS_, requestId);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *connect(uint16_t requestId) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = CONNECTION_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, CONNECT_, requestId);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, CONNECT_, requestId);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *receiverStatus(char *sessionId, uint16_t requestId) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = RECEIVER_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, RECEIVER_STATUS_, sessionId, requestId);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, RECEIVER_STATUS_, sessionId, requestId);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *launch(char *appId, uint16_t requestId) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = RECEIVER_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, LAUNCH_, appId, requestId);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, LAUNCH_, requestId, appId);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *mediaStatus(char *sessionId, uint16_t requestId) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = MEDIA_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, MEDIA_STATUS_, sessionId, requestId);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, MEDIA_STATUS_, sessionId, requestId);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-struct Message *load(char *appId, uint16_t requestId, char *contentId, char *streamType, char *contentType) {
-    Api__CastMessage cast_msg = API__CAST_MESSAGE__INIT;
-    cast_msg.namespace_ = MEDIA_NS;
-    cast_msg.source_id = DEFAULT_SOURCE_ID;
-    cast_msg.destination_id = DEFAULT_DESTINATION_ID;
-    size_t n = snprintf(NULL, 0, LOAD_, appId, requestId, contentId, streamType, contentType);
-    cast_msg.payload_utf8 = malloc(n+1);
-    snprintf(cast_msg.payload_utf8, n+1, LOAD_, appId, requestId, contentId, streamType, contentType);
-    cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
-    cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
-    DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
-    size_t size = api__cast_message__get_packed_size(&cast_msg);
-    unsigned char *packed = malloc(size+4);
-    if (packed != NULL) {        
-        *(uint32_t*)packed = htonl(size);
-        api__cast_message__pack(&cast_msg, &packed[4]);
-    }
-    struct Message *message = malloc(sizeof(struct Message));
-    message->msg = packed;
-    message->msgLen = size+4;
-    free(cast_msg.payload_utf8);
-    return message;
-}
-
-void addMessage(struct CastConnectionState *self, struct Message *message) {
-    // size_t size = api__cast_message__get_packed_size(cast_msg);
-    // unsigned char *packed = malloc(size+4);
-    // if (packed == NULL) {
-    //     DEBUG_PRINT("malloc error");
-    //     return;
-    // }
-    // *(uint32_t*)packed = htonl(size);
-    // api__cast_message__pack(cast_msg, &packed[4]);
+    *(uint32_t*)packed = htonl(size);
+    api__cast_message__pack(&cast_msg, &packed[4]);
     if (self->cs->item == NULL) {
         self->cs->item = (struct MessageItem*)malloc(sizeof(struct MessageItem));
         if (self->cs->item == NULL) {
             DEBUG_PRINT("malloc error");
             return;
         }
-        // self->cs->item->msg = packed;
-        // self->cs->item->msgLen = size+4;
+        self->cs->item->msg = packed;
+        self->cs->item->msgLen = size+4;
         // self->cs->item->castType = msgType;
-        self->cs->item->msg = message->msg;
-        self->cs->item->msgLen = message->msgLen;
         self->cs->item->next = NULL;
     } else {
         struct MessageItem *tmp = self->cs->item;
@@ -283,10 +128,8 @@ void addMessage(struct CastConnectionState *self, struct Message *message) {
             DEBUG_PRINT("malloc error");
             return;
         }
-        // tmp->next->msg = packed;
-        // tmp->next->msgLen = size+4;
-        tmp->next->msg = message->msg;
-        tmp->next->msgLen = message->msgLen;
+        tmp->next->msg = packed;
+        tmp->next->msgLen = size+4;
         // tmp->next->castType = msgType;
         tmp->next->next = NULL;
     }
@@ -315,11 +158,12 @@ void CastConnect(struct CastConnectionState *self) {
         sleep_ms(100);
     }
     self->cs = doConnect(cc->IPAddr, cc->Port);
-    addMessage(self, ping());
-    addMessage(self, connect(self->requestId));
-    addMessage(self, getStatus(self->requestId));
-    addMessage(self, launch(self->appId, self->requestId));
-    // addMessage(self, load(self->appId, self->requestId, self->rfidCard->Media->Url, "BUFFERED", self->rfidCard->Media->Type));
+    addMessage(self, PING);
+    addMessage(self, CONNECT);
+    addMessage(self, GET_STATUS);
+    addMessage(self, LAUNCH);
+    addMessage(self, GET_STATUS);
+
     int count = 0;
     int state = 0;
     enum CastMessageType msgType = 0;
@@ -329,7 +173,7 @@ void CastConnect(struct CastConnectionState *self) {
             continue;
         }
         if (state == DATA_READY) {
-            processingData(self, self->cs->recvData);
+            processingData(&self, self->cs->recvData);
             self->cs->state = CONNECTED;
         }
         sleep_ms(100);
@@ -341,7 +185,7 @@ void CastConnect(struct CastConnectionState *self) {
             }
             count = 0;
             self->pingCount++;
-            addMessage(self, ping());
+            addMessage(self, PING);
         }
         count++;
     }

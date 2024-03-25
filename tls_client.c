@@ -107,7 +107,7 @@ int pollConnection(struct connectionState **pcs) {
             // DEBUG_PRINT("data ready\n");
             break;
         case CONNECTION_CLOSE:
-            // DEBUG_PRINT("connection close\n");
+            DEBUG_PRINT("connection close\n");
             cyw43_arch_lwip_begin();
             altcp_close(cs->pcb);
             cyw43_arch_lwip_end();

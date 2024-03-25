@@ -46,7 +46,8 @@ struct Message {
 };
 
 void waitCard(struct CastConnectionState *self);
-void addMessage(struct CastConnectionState *self, struct Message *msg);
+// void addMessage(struct CastConnectionState *self, struct Message *msg);
+void addMessage(struct CastConnectionState *self, enum CastMessageType msgType);
 void initCastConnectionState(struct CastConnectionState *self);
 void CastConnect(struct CastConnectionState *self);
 
