@@ -24,7 +24,9 @@ enum CastMessageType {
     RECEIVER_STATUS,
     LAUNCH,
     MEDIA_STATUS,
-    LOAD
+    GET_MEDIA_STATUS,
+    LOAD,
+    STOP
 };
 
 struct Payload {

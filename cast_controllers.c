@@ -28,6 +28,15 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
         ccs->pingCount--;
     } else if (strcmp(type->valuestring, "PING") == 0) {
         addMessage(ccs, PONG);
+    } else if (strcmp(type->valuestring, "MEDIA_STATUS") == 0) {
+        cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
+        cJSON *stat = cJSON_GetArrayItem(status, 0);
+        if (stat == NULL) goto done;
+        cJSON *playerState = cJSON_GetObjectItem(stat, "playerState");
+        cJSON *mediaSessionId = cJSON_GetObjectItem(stat, "mediaSessionId");
+        DEBUG_PRINT("playerState %s\n", playerState->valuestring);
+        DEBUG_PRINT("mediaSessionId %d\n", mediaSessionId->valueint);
+        ccs->mediaSessionId = mediaSessionId->valueint;
     } else if (strcmp(type->valuestring, "RECEIVER_STATUS") == 0) {
         // ccs->receiverId = DEFAULT_DESTINATION_ID;
         cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
@@ -47,7 +56,11 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
             if (ccs->receiverId != NULL) {
                 strcpy(ccs->receiverId, sessionId->valuestring);
                 addMessage(ccs, CONNECT);
+                addMessage(ccs, GET_MEDIA_STATUS);
+                // addMessage(ccs, LOAD);
             }
+        } else {
+            addMessage(ccs, LAUNCH);
         }
     }
 done:
@@ -86,6 +99,18 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         sprintf(cast_msg.payload_utf8, GET_STATUS_PAYLOAD, self->requestId);
         self->requestId++;
         break;
+    case GET_MEDIA_STATUS:
+        cast_msg.namespace_ = MEDIA_NS;
+        n = sprintf(NULL, GET_STATUS_PAYLOAD, self->requestId);
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        if (cast_msg.payload_utf8 == NULL) {
+            DEBUG_PRINT("malloc error");
+            return;
+        }
+        sprintf(cast_msg.payload_utf8, GET_STATUS_PAYLOAD, self->requestId);
+        self->requestId++;
+        break;
     case LAUNCH:
         cast_msg.namespace_ = RECEIVER_NS;
         n = sprintf(NULL, LAUNCH_PAYLOAD, self->requestId, self->appId);
@@ -96,6 +121,29 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
             return;
         }
         sprintf(cast_msg.payload_utf8, LAUNCH_PAYLOAD, self->requestId, self->appId);
+        break;
+    case LOAD:
+        cast_msg.namespace_ = MEDIA_NS;
+        n = sprintf(NULL, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media.Url, "BUFFERED", self->rfidCard->Media.Type);
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        if (cast_msg.payload_utf8 == NULL) {
+            DEBUG_PRINT("malloc error");
+            return;
+        }
+        sprintf(cast_msg.payload_utf8, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media.Url, "BUFFERED", self->rfidCard->Media.Type);
+        break;
+    case STOP:
+        cast_msg.namespace_ = MEDIA_NS;
+        n = sprintf(NULL, STOP_PAYLOAD, self->requestId, self->mediaSessionId);
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        if (cast_msg.payload_utf8 == NULL) {
+            DEBUG_PRINT("malloc error");
+            return;
+        }
+        sprintf(cast_msg.payload_utf8, STOP_PAYLOAD, self->requestId, self->mediaSessionId);
+        break;
     }
     cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
     cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
@@ -142,11 +190,11 @@ void initCastConnectionState(struct CastConnectionState *self) {
     self->appId = APPMEDIA;
     self->cs = NULL;
     self->pingCount = 0;
-    self->cardReady = false;
+    // self->cardReady = false;
 }
 
 void waitCard(struct CastConnectionState *self) {
-    while(!self->cardReady) {
+    while(self->rfidCard->Event != READY) {
         sleep_ms(100);
     }
 }
@@ -161,16 +209,27 @@ void CastConnect(struct CastConnectionState *self) {
     addMessage(self, PING);
     addMessage(self, CONNECT);
     addMessage(self, GET_STATUS);
-    addMessage(self, LAUNCH);
-    addMessage(self, GET_STATUS);
+    // addMessage(self, LAUNCH);
+    // addMessage(self, GET_STATUS);
+    // addMessage(self, LOAD);
 
     int count = 0;
     int state = 0;
     enum CastMessageType msgType = 0;
     while((state = pollConnection(&self->cs)) != 0) {
-        if (!self->cardReady) {
+        if (self->rfidCard->Event == UNKNOWN) {
+            // need to wait while all messages sent
+            if (self->cs->item != NULL) {
+                sleep_ms(100);
+                continue;
+            }
+            self->receiverId = DEFAULT_DESTINATION_ID;
+            self->requestId = 1;
             self->cs->state = CONNECTION_CLOSE;
             continue;
+        } else if (self->rfidCard->Event == REMOVED) {
+            addMessage(self, STOP);
+            self->rfidCard->Event = UNKNOWN;
         }
         if (state == DATA_READY) {
             processingData(&self, self->cs->recvData);

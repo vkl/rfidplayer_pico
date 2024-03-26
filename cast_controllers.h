@@ -34,9 +34,10 @@ struct CastConnectionState {
     char *receiverId;
     char *appId;
     uint16_t requestId;
+    uint8_t mediaSessionId;
     struct connectionState *cs;
     int8_t pingCount;
-    bool cardReady;
+    // bool cardReady;
     struct RfidCard *rfidCard;
 };
 

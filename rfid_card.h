@@ -10,11 +10,18 @@ struct Media {
     char *Type;
 };
 
+enum CardEvent {
+    UNKNOWN = 0,
+    READY = 1,
+    REMOVED = 2
+};
+
 struct RfidCard {
     char *Id;
     char *ChromeCastName;
     double MaxVolume;
-    struct Media Media[];
+    struct Media Media;
+    enum CardEvent Event;
 };
 
 void rfid_card_control(uint gpio, uint32_t events);

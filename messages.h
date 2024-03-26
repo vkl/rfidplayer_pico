@@ -18,5 +18,6 @@
 #define LOAD_PAYLOAD "{\"type\":\"LOAD\",\"requestId\":%d,\
 \"media\":{\"contentId\":\"%s\",\"streamType\":\"%s\",\"contentType\":\"%s\"}}"
 
+#define STOP_PAYLOAD "{\"type\":\"STOP\",\"requestId\":%d,\"mediaSessionId\":%d}"
 
 #endif // MESSAGES_H
