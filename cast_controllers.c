@@ -24,27 +24,32 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
     }
     const cJSON *type = NULL;
     type = cJSON_GetObjectItemCaseSensitive(payload, "type");
+    
     if (strcmp(type->valuestring, "PONG") == 0) {
         ccs->pingCount--;
+    
     } else if (strcmp(type->valuestring, "PING") == 0) {
         addMessage(ccs, PONG);
+    
     } else if (strcmp(type->valuestring, "MEDIA_STATUS") == 0) {
         cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
         cJSON *stat = cJSON_GetArrayItem(status, 0);
-        if (stat == NULL) goto done;
+        if (stat == NULL) {
+            addMessage(ccs, GET_MEDIA_STATUS);
+            goto done;
+        }
         cJSON *playerState = cJSON_GetObjectItem(stat, "playerState");
         cJSON *mediaSessionId = cJSON_GetObjectItem(stat, "mediaSessionId");
         DEBUG_PRINT("playerState %s\n", playerState->valuestring);
         DEBUG_PRINT("mediaSessionId %d\n", mediaSessionId->valueint);
-        ccs->mediaSessionId = mediaSessionId->valueint;
+        if (mediaSessionId->valueint != ccs->mediaSessionId) {
+            ccs->mediaSessionId = mediaSessionId->valueint;
+        }
+    
     } else if (strcmp(type->valuestring, "RECEIVER_STATUS") == 0) {
-        // ccs->receiverId = DEFAULT_DESTINATION_ID;
         cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
-        if (status == NULL) goto done;
         cJSON *apps = cJSON_GetObjectItemCaseSensitive(status, "applications");
-        if (apps == NULL) goto done;
         cJSON *app = cJSON_GetArrayItem(apps, 0);
-        if (app == NULL) goto done;
         cJSON *sessionId = cJSON_GetObjectItem(app, "sessionId");
         if (sessionId != NULL) {
             DEBUG_PRINT("receiverId %s\n", ccs->receiverId);
@@ -56,11 +61,12 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
             if (ccs->receiverId != NULL) {
                 strcpy(ccs->receiverId, sessionId->valuestring);
                 addMessage(ccs, CONNECT);
+                addMessage(ccs, LOAD);
                 addMessage(ccs, GET_MEDIA_STATUS);
-                // addMessage(ccs, LOAD);
             }
         } else {
             addMessage(ccs, LAUNCH);
+            addMessage(ccs, GET_STATUS);
         }
     }
 done:
@@ -164,7 +170,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         }
         self->cs->item->msg = packed;
         self->cs->item->msgLen = size+4;
-        // self->cs->item->castType = msgType;
         self->cs->item->next = NULL;
     } else {
         struct MessageItem *tmp = self->cs->item;
@@ -178,7 +183,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         }
         tmp->next->msg = packed;
         tmp->next->msgLen = size+4;
-        // tmp->next->castType = msgType;
         tmp->next->next = NULL;
     }
 }
@@ -190,11 +194,12 @@ void initCastConnectionState(struct CastConnectionState *self) {
     self->appId = APPMEDIA;
     self->cs = NULL;
     self->pingCount = 0;
-    // self->cardReady = false;
+    self->cardEvent = UNKNOWN;
+    self->rfidCard = NULL;
 }
 
 void waitCard(struct CastConnectionState *self) {
-    while(self->rfidCard->Event != READY) {
+    while(self->cardEvent != READY || self->rfidCard == NULL) {
         sleep_ms(100);
     }
 }
@@ -209,15 +214,12 @@ void CastConnect(struct CastConnectionState *self) {
     addMessage(self, PING);
     addMessage(self, CONNECT);
     addMessage(self, GET_STATUS);
-    // addMessage(self, LAUNCH);
-    // addMessage(self, GET_STATUS);
-    // addMessage(self, LOAD);
 
     int count = 0;
     int state = 0;
     enum CastMessageType msgType = 0;
     while((state = pollConnection(&self->cs)) != 0) {
-        if (self->rfidCard->Event == UNKNOWN) {
+        if (self->cardEvent == UNKNOWN) {
             // need to wait while all messages sent
             if (self->cs->item != NULL) {
                 sleep_ms(100);
@@ -227,9 +229,9 @@ void CastConnect(struct CastConnectionState *self) {
             self->requestId = 1;
             self->cs->state = CONNECTION_CLOSE;
             continue;
-        } else if (self->rfidCard->Event == REMOVED) {
+        } else if (self->cardEvent == REMOVED) {
             addMessage(self, STOP);
-            self->rfidCard->Event = UNKNOWN;
+            self->cardEvent = UNKNOWN;
         }
         if (state == DATA_READY) {
             processingData(&self, self->cs->recvData);

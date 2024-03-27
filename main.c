@@ -15,9 +15,13 @@ struct CastConnectionState cast;
 int main()
 {
     stdio_init_all();
+    rfid_uart_init();
+
     connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
 
-    gpio_init(RFID_CARD_PRESENCE_PIN);
+    gpio_init_mask((1 << RFID_CARD_PRESENCE_PIN) | (1 << RFID_READER_RESET_PIN));
+    gpio_set_dir(RFID_READER_RESET_PIN, GPIO_OUT);
+    gpio_pull_down(RFID_READER_RESET_PIN);
     gpio_set_dir(RFID_CARD_PRESENCE_PIN, GPIO_IN);
     gpio_pull_up(RFID_CARD_PRESENCE_PIN);
     gpio_set_irq_enabled_with_callback(

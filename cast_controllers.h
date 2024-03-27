@@ -37,7 +37,7 @@ struct CastConnectionState {
     uint8_t mediaSessionId;
     struct connectionState *cs;
     int8_t pingCount;
-    // bool cardReady;
+    enum CardEvent cardEvent;
     struct RfidCard *rfidCard;
 };
 
