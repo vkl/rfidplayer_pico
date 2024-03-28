@@ -15,11 +15,6 @@
 #define UART_TX_PIN 4
 #define UART_RX_PIN 5
 
-struct Media {
-    char *Url;
-    char *Type;
-};
-
 enum CardEvent {
     UNKNOWN = 0,
     READY = 1,
@@ -30,7 +25,8 @@ struct RfidCard {
     char *Id;
     char *ChromeCastName;
     double MaxVolume;
-    struct Media Media;
+    char **Media;
+    uint16_t MediaCount;
 };
 
 void rfid_card_control(uint gpio, uint32_t events);

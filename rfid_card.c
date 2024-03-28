@@ -9,11 +9,21 @@ extern struct CastConnectionState cast;
 static char cardId[15];
 static uint8_t cardIdIndex = 0;
 
-#define CARDS_COUNT 2
+#define CARDS_COUNT 3
 
+// TODO: move to spi flash
 struct RfidCard cards[CARDS_COUNT] = {
-    {"3D002FDE19D5", "Bedroom Speaker", 0.5, {"http://radio.4duk.ru/4duk128.mp3", "audio/mp3"}},
-    {"3D003066E883", "Bedroom Speaker", 0.5, {"http://hermitage.hostingradio.ru/hermitage128.mp3", "audio/mp3"}}
+    {"3D002FDE19D5", "Bedroom Speaker", 0.5, {
+        "{\"contentId\":\"http://radio.4duk.ru/4duk128.mp3\",\"streamType\":\"BUFFERED\",\"contentType\":\"audio/mp3\"}"
+    }, 1},
+    {"3D003066E883", "Bedroom Speaker", 0.5, {
+        "{\"contentId\":\"http://hermitage.hostingradio.ru/hermitage128.mp3\",\"streamType\":\"BUFFERED\",\"contentType\":\"audio/mp3\"}"
+    }, 1},
+    {"3D0030C96FAB", "Bedroom Speaker", 0.5, {
+        "{\"contentId\":\"http://192.168.1.33:50002/m/NDLNA/3.m4a\",\"streamType\":\"BUFFERED\",\"contentType\":\"audio/m4a\"}",
+        "{\"contentId\":\"http://192.168.1.33:50002/m/NDLNA/4.m4a\",\"streamType\":\"BUFFERED\",\"contentType\":\"audio/m4a\"}",
+        "{\"contentId\":\"http://192.168.1.33:50002/m/NDLNA/5.m4a\",\"streamType\":\"BUFFERED\",\"contentType\":\"audio/m4a\"}"
+    }, 3}
 };
 
 void rfid_card_control(uint gpio, uint32_t events) {

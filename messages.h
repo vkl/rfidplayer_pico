@@ -15,9 +15,12 @@
 
 #define MEDIA_STATUS_PAYLOAD "{\"type\":\"MEDIA_STATUS\",\"requestId\":%d}"
 
-#define LOAD_PAYLOAD "{\"type\":\"LOAD\",\"requestId\":%d,\
-\"media\":{\"contentId\":\"%s\",\"streamType\":\"%s\",\"contentType\":\"%s\"}}"
+#define LOAD_PAYLOAD "{\"type\":\"LOAD\",\"requestId\":%d,\"media\":%s}"
+
+#define QUEUE_INSERT_PAYLOAD "{\"type\":\"QUEUE_INSERT\",\"requestId\":%d,\"items\":[%s],\"mediaSessionId\":%d,\"currentTime\":%d,\"autoPlay\":%s}"
 
 #define STOP_PAYLOAD "{\"type\":\"STOP\",\"requestId\":%d,\"mediaSessionId\":%d}"
+
+#define MEDIA_ITEM "{\"media\":%s,\"autoPlay\":%s,\"startTime\":%d,\"preloadTime\":%d}"
 
 #endif // MESSAGES_H

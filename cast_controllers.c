@@ -44,6 +44,9 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
         DEBUG_PRINT("mediaSessionId %d\n", mediaSessionId->valueint);
         if (mediaSessionId->valueint != ccs->mediaSessionId) {
             ccs->mediaSessionId = mediaSessionId->valueint;
+            if (ccs->rfidCard->MediaCount > 1) {
+                addMessage(ccs, QUEUE_INSERT);
+            }
         }
     
     } else if (strcmp(type->valuestring, "RECEIVER_STATUS") == 0) {
@@ -130,14 +133,40 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         break;
     case LOAD:
         cast_msg.namespace_ = MEDIA_NS;
-        n = sprintf(NULL, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media.Url, "BUFFERED", self->rfidCard->Media.Type);
+        n = sprintf(NULL, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media[0]);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
         if (cast_msg.payload_utf8 == NULL) {
             DEBUG_PRINT("malloc error");
             return;
         }
-        sprintf(cast_msg.payload_utf8, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media.Url, "BUFFERED", self->rfidCard->Media.Type);
+        DEBUG_PRINT("media %s\n", self->rfidCard->Media[0]);
+        sprintf(cast_msg.payload_utf8, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media[0]);
+        break;
+    case QUEUE_INSERT:
+        cast_msg.namespace_ = MEDIA_NS;
+        char *mediaItem = NULL;
+        for (uint16_t i = 1; i < self->rfidCard->MediaCount; i++) {
+            n = sprintf(NULL, MEDIA_ITEM, self->rfidCard->Media[i], "true", 0, 0);
+            if (mediaItem == NULL) {
+                mediaItem = malloc(n+1);
+                sprintf(mediaItem, MEDIA_ITEM, self->rfidCard->Media[i], "true", 0, 0);
+            } else {
+                char *tmp = malloc(strlen(mediaItem) + n + 1);
+                char *newItem = malloc(n+1);
+                sprintf(newItem, MEDIA_ITEM, self->rfidCard->Media[i], "true", 0, 0);
+                sprintf(tmp, "%s,%s", mediaItem, newItem);
+                free(mediaItem);
+                free(newItem);
+                mediaItem = tmp;
+            }
+        }
+        n = sprintf(NULL, QUEUE_INSERT_PAYLOAD, self->requestId, mediaItem, self->mediaSessionId, 0, "true");
+        cast_msg.destination_id = self->receiverId;
+        cast_msg.payload_utf8 = malloc(n+1);
+        sprintf(cast_msg.payload_utf8, QUEUE_INSERT_PAYLOAD, self->requestId, mediaItem, self->mediaSessionId, 0, "true");
+        self->requestId++;
+        free(mediaItem);
         break;
     case STOP:
         cast_msg.namespace_ = MEDIA_NS;

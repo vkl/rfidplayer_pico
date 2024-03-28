@@ -26,6 +26,7 @@ enum CastMessageType {
     MEDIA_STATUS,
     GET_MEDIA_STATUS,
     LOAD,
+    QUEUE_INSERT, 
     STOP
 };
 
