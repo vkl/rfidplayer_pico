@@ -2,7 +2,6 @@
 #include "casts.h"
 #include "messages.h"
 
-
 void processingData(struct CastConnectionState **self, unsigned char *data) {
     struct CastConnectionState *ccs = *self;
     Api__CastMessage *cast_msg;
@@ -73,7 +72,9 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
         }
     }
 done:
+    api__cast_message__free_unpacked(cast_msg, NULL);
     cJSON_Delete(payload);
+    payload = NULL;
 }
 
 void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) {
@@ -83,17 +84,20 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
     switch (msgType) {
     case PING:
         cast_msg.namespace_ = HEARTBEAT_NS;
-        cast_msg.payload_utf8 = PING_PAYLOAD;
+        cast_msg.payload_utf8 = malloc(strlen(PING_PAYLOAD)+1);
+        strcpy(cast_msg.payload_utf8, PING_PAYLOAD);
         cast_msg.destination_id = DEFAULT_DESTINATION_ID;
         break;
     case PONG:
         cast_msg.namespace_ = HEARTBEAT_NS;
-        cast_msg.payload_utf8 = PONG_PAYLOAD;
+        cast_msg.payload_utf8 = malloc(strlen(PONG_PAYLOAD)+1);
+        strcpy(cast_msg.payload_utf8, PONG_PAYLOAD);
         cast_msg.destination_id = DEFAULT_DESTINATION_ID;
         break;
     case CONNECT:
         cast_msg.namespace_ = CONNECTION_NS;
-        cast_msg.payload_utf8 = CONNECT_PAYLOAD;
+        cast_msg.payload_utf8 = malloc(strlen(CONNECT_PAYLOAD)+1);
+        strcpy(cast_msg.payload_utf8, CONNECT_PAYLOAD);
         cast_msg.destination_id = self->receiverId;
         break;
     case GET_STATUS:
@@ -101,10 +105,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         n = sprintf(NULL, GET_STATUS_PAYLOAD, self->requestId);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
-        if (cast_msg.payload_utf8 == NULL) {
-            DEBUG_PRINT("malloc error");
-            return;
-        }
         sprintf(cast_msg.payload_utf8, GET_STATUS_PAYLOAD, self->requestId);
         self->requestId++;
         break;
@@ -113,10 +113,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         n = sprintf(NULL, GET_STATUS_PAYLOAD, self->requestId);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
-        if (cast_msg.payload_utf8 == NULL) {
-            DEBUG_PRINT("malloc error");
-            return;
-        }
         sprintf(cast_msg.payload_utf8, GET_STATUS_PAYLOAD, self->requestId);
         self->requestId++;
         break;
@@ -125,10 +121,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         n = sprintf(NULL, LAUNCH_PAYLOAD, self->requestId, self->appId);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
-        if (cast_msg.payload_utf8 == NULL) {
-            DEBUG_PRINT("malloc error");
-            return;
-        }
         sprintf(cast_msg.payload_utf8, LAUNCH_PAYLOAD, self->requestId, self->appId);
         break;
     case LOAD:
@@ -136,10 +128,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         n = sprintf(NULL, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media[0]);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
-        if (cast_msg.payload_utf8 == NULL) {
-            DEBUG_PRINT("malloc error");
-            return;
-        }
         DEBUG_PRINT("media %s\n", self->rfidCard->Media[0]);
         sprintf(cast_msg.payload_utf8, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media[0]);
         break;
@@ -173,10 +161,6 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         n = sprintf(NULL, STOP_PAYLOAD, self->requestId, self->mediaSessionId);
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
-        if (cast_msg.payload_utf8 == NULL) {
-            DEBUG_PRINT("malloc error");
-            return;
-        }
         sprintf(cast_msg.payload_utf8, STOP_PAYLOAD, self->requestId, self->mediaSessionId);
         break;
     }
@@ -185,12 +169,9 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
     DEBUG_PRINT("-> %s %s\n", cast_msg.destination_id, cast_msg.payload_utf8);
     size_t size = api__cast_message__get_packed_size(&cast_msg);
     unsigned char *packed = malloc(size+4);
-    if (packed == NULL) {
-        DEBUG_PRINT("malloc error");
-        return;
-    }
     *(uint32_t*)packed = htonl(size);
     api__cast_message__pack(&cast_msg, &packed[4]);
+    free(cast_msg.payload_utf8);
     if (self->cs->item == NULL) {
         self->cs->item = (struct MessageItem*)malloc(sizeof(struct MessageItem));
         if (self->cs->item == NULL) {
@@ -256,7 +237,9 @@ void CastConnect(struct CastConnectionState *self) {
             }
             self->receiverId = DEFAULT_DESTINATION_ID;
             self->requestId = 1;
+            self->mediaSessionId = 0;
             self->cs->state = CONNECTION_CLOSE;
+
             continue;
         } else if (self->cardEvent == REMOVED) {
             addMessage(self, STOP);

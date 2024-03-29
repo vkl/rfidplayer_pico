@@ -63,6 +63,7 @@ target_compile_definitions(rfidplayer PRIVATE
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
     DEBUG_PRINT="1"
     CURRENT_UNIX_TIMESTAMP=${CURRENT_UNIX_TIMESTAMP}
+    PICO_DEBUG_MALLOC=1
 )
 
 # link_directories(
@@ -78,6 +79,7 @@ target_link_libraries(rfidplayer
         pico_stdlib
         pico_lwip_mbedtls
         pico_mbedtls
+        pico_malloc
         # ${CMAKE_CURRENT_LIST_DIR}/proto/lib/libprotobuf-c.a
         # ${CMAKE_CURRENT_LIST_DIR}/proto/lib/libprotobuf-c.la
         )

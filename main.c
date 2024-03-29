@@ -15,6 +15,7 @@ struct CastConnectionState cast;
 int main()
 {
     stdio_init_all();
+
     rfid_uart_init();
 
     connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
