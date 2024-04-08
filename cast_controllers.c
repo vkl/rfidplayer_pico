@@ -2,6 +2,15 @@
 #include "casts.h"
 #include "messages.h"
 
+#include "quadrature_encoder.pio.h"
+
+extern PIO pio;
+extern const uint sm;
+int8_t volume = 0;
+int old_value = 0;
+int new_value = 0;
+
+
 void processingData(struct CastConnectionState **self, unsigned char *data) {
     struct CastConnectionState *ccs = *self;
     Api__CastMessage *cast_msg;
@@ -163,6 +172,13 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         cast_msg.payload_utf8 = malloc(n+1);
         sprintf(cast_msg.payload_utf8, STOP_PAYLOAD, self->requestId, self->mediaSessionId);
         break;
+    case SET_VOLUME:
+        cast_msg.namespace_ = RECEIVER_NS;
+        n = sprintf(NULL, SET_VOLUME_PAYLOAD, self->requestId, (float)(volume/100.0));
+        cast_msg.destination_id = DEFAULT_DESTINATION_ID;
+        cast_msg.payload_utf8 = malloc(n+1);
+        sprintf(cast_msg.payload_utf8, SET_VOLUME_PAYLOAD, self->requestId, (float)(volume/100.0));
+        break;
     }
     cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
     cast_msg.payload_type = API__CAST_MESSAGE__PAYLOAD_TYPE__STRING;
@@ -260,6 +276,29 @@ void CastConnect(struct CastConnectionState *self) {
             self->pingCount++;
             addMessage(self, PING);
         }
+        // check encoder value
+        new_value = quadrature_encoder_get_count(pio, sm);
+        sleep_ms(50);
+        if (new_value == old_value) {
+            continue;
+        }
+        if (new_value > old_value) {
+            volume = volume + 2;
+            if (volume > 100) {
+                volume = 100;
+            }
+        } else if (new_value < old_value) {
+            volume = volume - 2;
+            if (volume < 0) {
+                volume = 0;
+            }
+        }
+        old_value = new_value;
+        DEBUG_PRINT("%d\n", volume);
+        if (self->mediaSessionId != 0) {
+            addMessage(self, SET_VOLUME);
+        }
+
         count++;
     }
 }

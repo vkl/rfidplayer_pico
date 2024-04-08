@@ -38,6 +38,9 @@ add_executable(rfidplayer
   proto/cast_channel.pb-c.c
   )
 
+# pico_generate_pio_header(rfidplayer ${CMAKE_CURRENT_LIST_DIR}/hello.pio)
+pico_generate_pio_header(rfidplayer ${CMAKE_CURRENT_LIST_DIR}/quadrature_encoder.pio)
+
 pico_set_program_name(rfidplayer "rfidplayer")
 pico_set_program_version(rfidplayer "0.1")
 
@@ -63,7 +66,7 @@ target_compile_definitions(rfidplayer PRIVATE
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
     DEBUG_PRINT="1"
     CURRENT_UNIX_TIMESTAMP=${CURRENT_UNIX_TIMESTAMP}
-    PICO_DEBUG_MALLOC=1
+    PICO_DEBUG_MALLOC=0
 )
 
 # link_directories(

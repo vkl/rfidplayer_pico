@@ -27,7 +27,8 @@ enum CastMessageType {
     GET_MEDIA_STATUS,
     LOAD,
     QUEUE_INSERT, 
-    STOP
+    STOP,
+    SET_VOLUME
 };
 
 struct Payload {

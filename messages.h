@@ -23,4 +23,6 @@
 
 #define MEDIA_ITEM "{\"media\":%s,\"autoPlay\":%s,\"startTime\":%d,\"preloadTime\":%d}"
 
+#define SET_VOLUME_PAYLOAD "{\"type\":\"SET_VOLUME\",\"requestId\":%d,\"volume\":{\"level\":%f,\"muted\":false}}"
+
 #endif // MESSAGES_H
