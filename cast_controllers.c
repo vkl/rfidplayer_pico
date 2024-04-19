@@ -6,9 +6,10 @@
 
 extern PIO pio;
 extern const uint sm;
-int8_t volume = 0;
+// int8_t volume = 0;
 int old_value = 0;
 int new_value = 0;
+int delta_value = 0;
 
 
 void processingData(struct CastConnectionState **self, unsigned char *data) {
@@ -60,6 +61,9 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
     } else if (strcmp(type->valuestring, "RECEIVER_STATUS") == 0) {
         cJSON *status = cJSON_GetObjectItemCaseSensitive(payload, "status");
         cJSON *apps = cJSON_GetObjectItemCaseSensitive(status, "applications");
+        cJSON *volume = cJSON_GetObjectItemCaseSensitive(status, "volume");
+        cJSON *volumeLevel = cJSON_GetObjectItemCaseSensitive(volume, "level");
+        DEBUG_PRINT("receiver status volume %f\n", volumeLevel->valuedouble);
         cJSON *app = cJSON_GetArrayItem(apps, 0);
         cJSON *sessionId = cJSON_GetObjectItem(app, "sessionId");
         if (sessionId != NULL) {
@@ -79,6 +83,8 @@ void processingData(struct CastConnectionState **self, unsigned char *data) {
             addMessage(ccs, LAUNCH);
             addMessage(ccs, GET_STATUS);
         }
+    } else if (strcmp(type->valuestring, "CLOSE") == 0) {
+        addMessage(ccs, CONNECT);
     }
 done:
     api__cast_message__free_unpacked(cast_msg, NULL);
@@ -108,6 +114,7 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         cast_msg.payload_utf8 = malloc(strlen(CONNECT_PAYLOAD)+1);
         strcpy(cast_msg.payload_utf8, CONNECT_PAYLOAD);
         cast_msg.destination_id = self->receiverId;
+        self->requestId++;
         break;
     case GET_STATUS:
         cast_msg.namespace_ = RECEIVER_NS;
@@ -131,6 +138,7 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         cast_msg.destination_id = self->receiverId;
         cast_msg.payload_utf8 = malloc(n+1);
         sprintf(cast_msg.payload_utf8, LAUNCH_PAYLOAD, self->requestId, self->appId);
+        self->requestId++;
         break;
     case LOAD:
         cast_msg.namespace_ = MEDIA_NS;
@@ -139,6 +147,7 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         cast_msg.payload_utf8 = malloc(n+1);
         DEBUG_PRINT("media %s\n", self->rfidCard->Media[0]);
         sprintf(cast_msg.payload_utf8, LOAD_PAYLOAD, self->requestId, self->rfidCard->Media[0]);
+        self->requestId++;
         break;
     case QUEUE_INSERT:
         cast_msg.namespace_ = MEDIA_NS;
@@ -174,10 +183,11 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         break;
     case SET_VOLUME:
         cast_msg.namespace_ = RECEIVER_NS;
-        n = sprintf(NULL, SET_VOLUME_PAYLOAD, self->requestId, (float)(volume/100.0));
+        n = sprintf(NULL, SET_VOLUME_PAYLOAD, self->requestId, (float)(self->volume/100.0));
         cast_msg.destination_id = DEFAULT_DESTINATION_ID;
         cast_msg.payload_utf8 = malloc(n+1);
-        sprintf(cast_msg.payload_utf8, SET_VOLUME_PAYLOAD, self->requestId, (float)(volume/100.0));
+        sprintf(cast_msg.payload_utf8, SET_VOLUME_PAYLOAD, self->requestId, (float)(self->volume/100.0));
+        self->requestId++;
         break;
     }
     cast_msg.protocol_version = API__CAST_MESSAGE__PROTOCOL_VERSION__CASTV2_1_0;
@@ -188,6 +198,7 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
     *(uint32_t*)packed = htonl(size);
     api__cast_message__pack(&cast_msg, &packed[4]);
     free(cast_msg.payload_utf8);
+    sem_acquire_blocking(&semafore);
     if (self->cs->item == NULL) {
         self->cs->item = (struct MessageItem*)malloc(sizeof(struct MessageItem));
         if (self->cs->item == NULL) {
@@ -211,6 +222,7 @@ void addMessage(struct CastConnectionState *self, enum CastMessageType msgType) 
         tmp->next->msgLen = size+4;
         tmp->next->next = NULL;
     }
+    sem_release(&semafore);
 }
 
 void initCastConnectionState(struct CastConnectionState *self) {
@@ -265,8 +277,8 @@ void CastConnect(struct CastConnectionState *self) {
             processingData(&self, self->cs->recvData);
             self->cs->state = CONNECTED;
         }
-        sleep_ms(100);
-        if (count > 100) {
+        sleep_ms(50);
+        if (count > 200) {
             if (self->pingCount >= MAXFAILEDPINGS) {
                 DEBUG_PRINT("The receiver didn't respond for more then %d pings\n", MAXFAILEDPINGS);
                 self->cs->state = CONNECTION_CLOSE;
@@ -278,27 +290,28 @@ void CastConnect(struct CastConnectionState *self) {
         }
         // check encoder value
         new_value = quadrature_encoder_get_count(pio, sm);
-        sleep_ms(50);
         if (new_value == old_value) {
             continue;
         }
-        if (new_value > old_value) {
-            volume = volume + 2;
-            if (volume > 100) {
-                volume = 100;
+        delta_value = new_value - old_value;
+        if (delta_value > 20 || delta_value < -20) {
+            if (delta_value > 0) {
+                self->volume = self->volume + 5;
+                if (self->volume > 100) {
+                    self->volume = 100;
+                }
+            } else if (delta_value < 0) {
+                self->volume = self->volume - 5;
+                if (self->volume < 0) {
+                    self->volume = 0;
+                }
             }
-        } else if (new_value < old_value) {
-            volume = volume - 2;
-            if (volume < 0) {
-                volume = 0;
+            old_value = new_value;
+            DEBUG_PRINT("Volume %d\n", self->volume);
+            if (self->mediaSessionId != 0) {
+                addMessage(self, SET_VOLUME);
             }
         }
-        old_value = new_value;
-        DEBUG_PRINT("%d\n", volume);
-        if (self->mediaSessionId != 0) {
-            addMessage(self, SET_VOLUME);
-        }
-
         count++;
     }
 }

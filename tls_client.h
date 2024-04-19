@@ -3,6 +3,8 @@
 
 #include "lwip/err.h"
 
+#include "pico/sync.h"
+
 #include "common.h"
 #include "cast_message.h"
 #include "cast_controllers.h"
@@ -38,5 +40,7 @@ struct connectionState {
 
 int pollConnection(struct connectionState **pcs);
 struct connectionState *doConnect(const char *host, int port); //, processingData_fn processingData);
+
+extern semaphore_t semafore;
 
 #endif

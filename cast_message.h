@@ -31,36 +31,47 @@ enum CastMessageType {
     SET_VOLUME
 };
 
-struct Payload {
-    enum CastMessageType Type;
-    uint8_t RequestId;
-};
-
-struct Application {
-    char *AppID;
-	char *DisplayName;
-	struct Namespace **Namespaces;
-	char *SessionID;
-	char *StatusText;
-	char *TransportId;
-};
-
-struct Namespace {
-    char *Name;
-};
-
 struct Volume {
-    char *controlType;
     float level;
     bool muted;
-    float stepInterval;
 };
 
-struct ReceiverStatus {
-    struct Application **applications;
+struct MediaStatus {
+    char *mediaSessionId;
+    char *playerState;
     struct Volume volume;
 };
 
-char *payload(enum CastMessageType msgType);
+// struct Payload {
+//     enum CastMessageType Type;
+//     uint8_t RequestId;
+// };
+
+// struct Application {
+//     char *AppID;
+// 	char *DisplayName;
+// 	struct Namespace **Namespaces;
+// 	char *SessionID;
+// 	char *StatusText;
+// 	char *TransportId;
+// };
+
+// struct Namespace {
+//     char *Name;
+// };
+
+// struct Volume {
+//     char *controlType;
+//     float level;
+//     bool muted;
+//     float stepInterval;
+// };
+
+// struct ReceiverStatus {
+//     struct Application **applications;
+//     struct Volume volume;
+// };
+
+// char *payload(enum CastMessageType msgType);
 
 #endif

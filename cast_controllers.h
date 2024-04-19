@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/sync.h"
 
 #include "cast_channel.pb-c.h"
 #include "tls_client.h"
@@ -39,6 +40,8 @@ struct CastConnectionState {
     int8_t pingCount;
     enum CardEvent cardEvent;
     struct RfidCard *rfidCard;
+    struct MediaStatus mediaStatus;
+    int8_t volume;
 };
 
 struct Message {
@@ -47,11 +50,11 @@ struct Message {
 };
 
 void waitCard(struct CastConnectionState *self);
-// void addMessage(struct CastConnectionState *self, struct Message *msg);
 void addMessage(struct CastConnectionState *self, enum CastMessageType msgType);
 void initCastConnectionState(struct CastConnectionState *self);
 void CastConnect(struct CastConnectionState *self);
 
 extern struct CastConnectionState cast;
+extern semaphore_t semafore;
 
 #endif

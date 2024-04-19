@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/sync.h"
 #include "hardware/gpio.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
@@ -14,6 +15,8 @@
 
 #include "quadrature_encoder.pio.h"
 
+semaphore_t semafore;
+
 PIO pio = pio0;
 const uint sm = 0;
 
@@ -21,6 +24,9 @@ struct CastConnectionState cast;
 
 int main()
 {
+
+    sem_init(&semafore, 1, 1);
+
     stdio_init_all();
     rfid_uart_init();
 
