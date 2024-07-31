@@ -31,14 +31,21 @@ enum CastMessageType {
     SET_VOLUME
 };
 
+enum PlayerState {
+    IDLE,
+    BUFFERING,
+    PAUSED,
+    PLAYING
+};
+
 struct Volume {
     float level;
     bool muted;
 };
 
 struct MediaStatus {
-    char *mediaSessionId;
-    char *playerState;
+    int mediaSessionId;
+    enum PlayerState playerState;
     struct Volume volume;
 };
 

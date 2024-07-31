@@ -4,7 +4,9 @@
 #include "cast_controllers.h"
 #include "casts.h"
 
-extern struct CastConnectionState cast;
+// extern struct CastConnectionState cast;
+extern enum CardEvent cardEvent;
+extern struct RfidCard *rfidCard;
 
 static char cardId[15];
 static uint8_t cardIdIndex = 0;
@@ -39,7 +41,7 @@ void rfid_card_control(uint gpio, uint32_t events) {
         DEBUG_PRINT("got event fall\n");
         gpio_pull_down(RFID_READER_RESET_PIN);
         gpio_put(RFID_READER_RESET_PIN, 0);
-        cast.cardEvent = REMOVED;
+        cardEvent = REMOVED;
     }
 }
 
@@ -58,8 +60,8 @@ void on_uart_rx() {
                 DEBUG_PRINT("Card ID %s %s\n", cardId, cards[i].Id);
                 if (strcmp(cardId, cards[i].Id) == 0) {
                     DEBUG_PRINT("Found card\n");
-                    cast.cardEvent = READY;
-                    cast.rfidCard = &cards[i];
+                    cardEvent = READY;
+                    rfidCard = &cards[i];
                 }
             }
         } else {

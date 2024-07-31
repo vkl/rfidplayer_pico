@@ -32,6 +32,7 @@ add_executable(rfidplayer
   cast_message.c
   cast_controllers.c
   rfid_card.c
+  player.c
   casts.c
   cjson/cJSON.c
   proto/protobuf-c/protobuf-c.c

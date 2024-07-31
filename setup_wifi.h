@@ -2,6 +2,7 @@
 #define _SETUP_WIFI_H
 
 #include "pico/cyw43_arch.h"
+#include "player.h"
 
 int connectWiFi(uint32_t country, const char *ssid, const char *pass,  uint32_t auth) {
     if (cyw43_arch_init_with_country(country)) {
@@ -20,9 +21,11 @@ int connectWiFi(uint32_t country, const char *ssid, const char *pass,  uint32_t 
             flashrate = flashrate / (status + 1);
             printf("connect status: %d %d\n", status, flashrate);
         }
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        gpio_put(LED_RED_PIN, 0);
         sleep_ms(flashrate);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+        gpio_put(LED_RED_PIN, 1);
         sleep_ms(flashrate);
         } 
     if (status < 0) { 

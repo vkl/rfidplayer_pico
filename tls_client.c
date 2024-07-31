@@ -34,8 +34,8 @@ err_t tcp_recv_cb(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err) 
 }
 
 err_t tcp_sent_cb(void *arg, struct altcp_pcb *tpcb, u16_t len) {
-    // struct connectionState *cs = (struct connectionState *)arg;
-    // DEBUG_PRINT("len: %d, sent %d\n", len, cs->item->msgLen);
+    struct connectionState *cs = (struct connectionState *)arg;
+    DEBUG_PRINT("len: %d, sent %d\n", len, cs->item->msgLen);
     return ERR_OK;
 }
 
@@ -78,13 +78,13 @@ int pollConnection(struct connectionState **pcs) {
             }
             break;
         case READY_TO_SEND:
-            // DEBUG_PRINT("ready to send: %d\n", cs->item->msgLen);
+            DEBUG_PRINT("ready to send: %d\n", cs->item->msgLen);
             // DEBUG_PRINT("msg %s %d\n", cs->item->msg,cs->item->msgLen);
             // for (int i = 0; i < cs->item->msgLen; i++) {
             //     printf("%02x ", cs->item->msg[i]);
             // }
             // printf("\n");
-            sem_acquire_blocking(&semafore);
+            // sem_acquire_blocking(&semafore);
             cs->state = CONNECTED;
             cyw43_arch_lwip_begin();
             err_t err = altcp_write(cs->pcb, cs->item->msg, cs->item->msgLen, TCP_WRITE_FLAG_COPY);
@@ -102,7 +102,7 @@ int pollConnection(struct connectionState **pcs) {
                 free(cs->item);
                 cs->item = NULL;
             }
-            sem_release(&semafore);
+            // sem_release(&semafore);
             break;
         case INITIAL_DATA_PACKAGE:
             cs->state = WAITING_MORE_DATA;

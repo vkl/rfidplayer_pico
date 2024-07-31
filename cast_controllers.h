@@ -35,13 +35,13 @@ struct CastConnectionState {
     char *receiverId;
     char *appId;
     uint16_t requestId;
-    uint8_t mediaSessionId;
+    // uint8_t mediaSessionId;
     struct connectionState *cs;
     int8_t pingCount;
-    enum CardEvent cardEvent;
-    struct RfidCard *rfidCard;
+    // enum CardEvent cardEvent;
+    // struct RfidCard *rfidCard;
     struct MediaStatus mediaStatus;
-    int8_t volume;
+    // int8_t volume;
 };
 
 struct Message {
@@ -49,7 +49,7 @@ struct Message {
     size_t msgLen;
 };
 
-void waitCard(struct CastConnectionState *self);
+
 void addMessage(struct CastConnectionState *self, enum CastMessageType msgType);
 void initCastConnectionState(struct CastConnectionState *self);
 void CastConnect(struct CastConnectionState *self);
