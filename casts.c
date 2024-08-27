@@ -3,7 +3,7 @@
 
 struct ChromeCast casts[2] = {
     {"Living Room", "192.168.1.106", 8009},
-    {"Bedroom Speaker", "192.168.1.104", 8009}
+    {"Bedroom Speaker", "192.168.1.102", 8009}
 };
 
 struct ChromeCast* findChromecastByName(struct ChromeCast *casts, int size, const char* name) {

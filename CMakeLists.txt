@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
-set(PICO_SDK_PATH "/home/vkl/pico/pico-sdk")
+set(PICO_SDK_PATH "/home/vklad/pico/pico-sdk")
 
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
@@ -34,12 +34,12 @@ add_executable(rfidplayer
   rfid_card.c
   player.c
   casts.c
+  mdns_helper.c
   cjson/cJSON.c
   proto/protobuf-c/protobuf-c.c
   proto/cast_channel.pb-c.c
   )
 
-# pico_generate_pio_header(rfidplayer ${CMAKE_CURRENT_LIST_DIR}/hello.pio)
 pico_generate_pio_header(rfidplayer ${CMAKE_CURRENT_LIST_DIR}/quadrature_encoder.pio)
 
 pico_set_program_name(rfidplayer "rfidplayer")
@@ -65,9 +65,10 @@ execute_process(
 target_compile_definitions(rfidplayer PRIVATE
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
-    DEBUG_PRINT="1"
     CURRENT_UNIX_TIMESTAMP=${CURRENT_UNIX_TIMESTAMP}
     PICO_DEBUG_MALLOC=0
+    DEBUG=1
+    LWIP_DNS_SUPPORT_MDNS_QUERIES=1
 )
 
 # link_directories(
