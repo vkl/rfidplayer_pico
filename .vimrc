@@ -19,6 +19,7 @@ function! LoadProgram()
     execute 'terminal'
     call feedkeys("source ./build_env.sh\<CR>")
     call feedkeys("sudo /usr/bin/cmake --build $BUILD_DIR --config Debug --target install -j 10 --\<CR>")
+    "call feedkeys("cd ./build && sudo /usr/bin/cmake --install .\<CR>")
     call feedkeys("exit\<CR>")
 endfunction
 

@@ -65,9 +65,10 @@ execute_process(
 target_compile_definitions(rfidplayer PRIVATE
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
-    DEBUG_PRINT="1"
     CURRENT_UNIX_TIMESTAMP=${CURRENT_UNIX_TIMESTAMP}
     PICO_DEBUG_MALLOC=0
+    DEBUG=1
+    LWIP_DNS_SUPPORT_MDNS_QUERIES=1
 )
 
 # link_directories(

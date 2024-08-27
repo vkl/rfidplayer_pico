@@ -3,10 +3,6 @@
 
 #include "lwip/err.h"
 
-#include "pico/sync.h"
-
-#include "common.h"
-#include "cast_message.h"
 #include "cast_controllers.h"
 
 #define NOT_CONNECTED        0

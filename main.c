@@ -1,15 +1,11 @@
-#include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-#include "pico/sync.h"
 #include "hardware/gpio.h"
 #include "hardware/pio.h"
-#include "hardware/clocks.h"
 
 #include "common.h"
 #include "mdns_helper.h"
 #include "setup_wifi.h"
-#include "tls_client.h"
 #include "cast_controllers.h"
 #include "rfid_card.h"
 #include "player.h"
@@ -31,7 +27,7 @@ int main()
 
     connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
 
-    sendMDNSRequest();
+    mdns_send();
 
     pio_add_program(pio, &quadrature_encoder_program);
     quadrature_encoder_program_init(pio, sm, ENCODER_PINA, 0);

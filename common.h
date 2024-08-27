@@ -1,16 +1,10 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#include <time.h>
-
-#ifdef DEBUG_PRINT
+#ifdef DEBUG
 #define DEBUG_PRINT(fmt, ...) \
     do { \
-        time_t t = time(NULL); \
-        struct tm *tm_info = localtime(&t); \
-        printf("%04d-%02d-%02d %02d:%02d:%02d DEBUG ", \
-                tm_info->tm_year+1900, tm_info->tm_mon, tm_info->tm_mday, \
-                tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec); \
+        printf("DEBUG "); \
         printf(fmt, ##__VA_ARGS__); \
     } while (0)
 #else
