@@ -1,9 +1,10 @@
-#include "pico/stdlib.h"
+#include <stdlib.h> 
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
 #include "hardware/pio.h"
+#include "pico/stdio.h"
 
-#include "common.h"
+#include "casts.h"
 #include "mdns_helper.h"
 #include "setup_wifi.h"
 #include "cast_controllers.h"
@@ -18,22 +19,47 @@ const uint sm = 0;
 enum CardEvent cardEvent = REMOVED;
 struct RfidCard *rfidCard = NULL;
 
+void wait_devices_discovery(void *arg) {
+    struct udp_pcb *pcb = (struct udp_pcb*)arg;
+    gpio_put(LED_GREEN_PIN, 1);
+    gpio_put(LED_RED_PIN, 1);
+    for(u16_t c=0; c < 100; c++) {
+        sleep_ms(50);
+        if (c % 6 == 0) 
+            GPIO_TOGGLE(LED_BLUE_PIN); 
+    }
+    gpio_put(LED_BLUE_PIN, 1);
+    udp_disconnect(pcb);
+    udp_remove(pcb);
+}
+
 int main()
 {
-
     stdio_init_all();
     rfid_uart_init();
     player_init();
 
     connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
 
-    mdns_send();
+    ChromeCastDevices devices;
+    initChromeCastDevices(&devices, 10);
+    mdns_send(&devices, wait_devices_discovery);
+
+    char ipaddr[16] = {0};
+    for (u8_t c=0; c < devices.size; c++) {
+        printf("name: %s, hostname: %s, ip: %s\n\t%s\n",
+                devices.chromecastDevice[c].name,
+                devices.chromecastDevice[c].hostname,
+                ipaddr_ntoa(&devices.chromecastDevice[c].ipaddr),
+                devices.chromecastDevice[c].txtData);
+        sleep_ms(100);
+    }
 
     pio_add_program(pio, &quadrature_encoder_program);
     quadrature_encoder_program_init(pio, sm, ENCODER_PINA, 0);
     
     struct CastConnectionState cast;
-    
+
     while(true) {
         gpio_put(LED_GREEN_PIN, 1);
         gpio_put(LED_BLUE_PIN, 1);
@@ -43,10 +69,12 @@ int main()
         }
         gpio_put(LED_RED_PIN, 1);
         initCastConnectionState(&cast);
-        CastConnect(&cast);
+        CastConnect(&cast, &devices);
+        sleep_ms(500);
     }
 
     cyw43_arch_deinit();
+    freeChromeCastDevices(&devices);
     return 0;
 }
 

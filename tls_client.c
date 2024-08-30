@@ -2,12 +2,8 @@
 #include "lwip/pbuf.h"
 #include "lwip/altcp.h"
 #include "lwip/altcp_tls.h"
-#include "lwip/dns.h"
 
-#include "cast_channel.pb-c.h"
-#include "cast_message.h"
-#include "cast_controllers.h"
-
+#include "common.h"
 #include "tls_client.h"
 
 #define MESSAGE_BUFFER 4096
@@ -143,11 +139,11 @@ struct connectionState *newConnection() {
     return cs;
 }
 
-struct connectionState *doConnect(const char *ipaddr, int port) {
-    ip_addr_t ip;
-    ipaddr_aton(ipaddr, &ip);
+struct connectionState *doConnect(ip_addr_t ip, const char *hostname, int port) {
+    //ip_addr_t ip;
+    //ipaddr_aton(ipaddr, &ip);
     struct connectionState *cs = newConnection();
-    mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), ipaddr);
+    mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), hostname);
     cyw43_arch_lwip_begin();
     altcp_connect(cs->pcb, &ip, port, connected);
     cyw43_arch_lwip_end();

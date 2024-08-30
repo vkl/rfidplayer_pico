@@ -1,10 +1,7 @@
 #ifndef _RFID_CARD_H
 #define _RFID_CARD_H
 
-#include "hardware/gpio.h"
 #include "hardware/uart.h"
-#include "hardware/irq.h"
-#include "pico/stdlib.h"
 
 #define RFID_CARD_PRESENCE_PIN 2
 #define RFID_READER_RESET_PIN 3

@@ -1,10 +1,19 @@
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <pico/time.h>
+
 #include "cast_controllers.h"
 #include "casts.h"
 #include "messages.h"
 #include "common.h"
 #include "player.h"
-
+#include "proto/cast_channel.pb-c.h"
+#include "cjson/cJSON.h"
 #include "quadrature_encoder.pio.h"
+#include "cast_message.h"
+#include "rfid_card.h"
 
 extern PIO pio;
 extern const uint sm;
@@ -17,7 +26,7 @@ int new_value = 0;
 int delta_value = 0;
 
 
-void processingData(struct CastConnectionState **self, unsigned char *data) {
+static void processingData(struct CastConnectionState **self, unsigned char *data) {
     struct CastConnectionState *ccs = *self;
     Api__CastMessage *cast_msg;
     size_t len = (data[0]<<24) | (data[1]<<16) | (data[2]<<8) | data[3];
@@ -259,13 +268,14 @@ void initCastConnectionState(struct CastConnectionState *self) {
     // self->rfidCard = NULL;
 }
 
-void CastConnect(struct CastConnectionState *self) {
-    struct ChromeCast *cc = NULL;
-    while(cc == NULL) {
-        cc = findChromecastByName(casts, 2, rfidCard->ChromeCastName);
-        sleep_ms(100);
+void CastConnect(struct CastConnectionState *self, ChromeCastDevices *devices) {
+    ChromeCastDevice *device = findChromeCastDevice(devices, rfidCard->ChromeCastName);
+    if (!device) {
+        printf("chromecast device '%s' doesn't exist\n",
+                rfidCard->ChromeCastName);
+        return;
     }
-    self->cs = doConnect(cc->IPAddr, cc->Port);
+    self->cs = doConnect(device->ipaddr, device->hostname, device->port);
     addMessage(self, PING);
     addMessage(self, CONNECT);
     addMessage(self, GET_STATUS);

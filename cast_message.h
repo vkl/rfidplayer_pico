@@ -15,6 +15,8 @@
 #define APPYOUTUBEMUSIC        "2DB7CC49"
 #define APPYOUTUBE             "233637DE"
 
+#include <stdbool.h> 
+
 enum CastMessageType {
     PING = 1,
     PONG,

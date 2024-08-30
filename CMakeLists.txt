@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
 set(PICO_SDK_PATH "/home/vklad/pico/pico-sdk")
@@ -23,8 +23,10 @@ project(rfidplayer C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+# Explicitly add include to work YouCompleteMe properly 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I/usr/lib/arm-none-eabi/include")
 
+# Add executable. Default name is the project name, version 0.1
 add_executable(rfidplayer
   main.c
   # tcp_common.c
@@ -68,7 +70,6 @@ target_compile_definitions(rfidplayer PRIVATE
     CURRENT_UNIX_TIMESTAMP=${CURRENT_UNIX_TIMESTAMP}
     PICO_DEBUG_MALLOC=0
     DEBUG=1
-    LWIP_DNS_SUPPORT_MDNS_QUERIES=1
 )
 
 # link_directories(
@@ -93,3 +94,4 @@ pico_add_extra_outputs(rfidplayer)
 
 install(CODE 
   "execute_process(COMMAND openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c \"adapter speed 5000\" -c \"program rfidplayer.elf verify reset exit\" RESULT_VARIABLE result)")
+

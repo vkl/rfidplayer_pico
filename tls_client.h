@@ -1,9 +1,8 @@
 #ifndef _TLS_CLIENT_H
 #define _TLS_CLIENT_H
 
-#include "lwip/err.h"
-
-#include "cast_controllers.h"
+#include <stdlib.h>
+#include <lwip/inet.h>
 
 #define NOT_CONNECTED        0
 #define CONNECTING           1
@@ -28,15 +27,13 @@ struct MessageItem {
 struct connectionState {
     int state;
     struct altcp_pcb *pcb;
-    char *recvData;
+    unsigned char *recvData;
     struct MessageItem *item;
     int start;
     // processingData_fn processingData;
 };
 
 int pollConnection(struct connectionState **pcs);
-struct connectionState *doConnect(const char *host, int port); //, processingData_fn processingData);
-
-extern semaphore_t semafore;
+struct connectionState *doConnect(ip_addr_t ip, const char *hostname, int port); //, processingData_fn processingData);
 
 #endif

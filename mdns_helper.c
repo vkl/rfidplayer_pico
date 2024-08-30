@@ -9,12 +9,13 @@
 #include <lwip/dns.h>
 #include <lwip/ip_addr.h>
 
+#include "casts.h"
 #include "mdns_helper.h"
 
 static u16_t 
 parse_dns_name(struct pbuf *p, u16_t query_idx, char *name); 
 
-void mdns_send() {
+void mdns_send(ChromeCastDevices *devices, callback __func) {
 
     const char *hostname = GOOGLECAST_TCP;
     const char *hostname_part;
@@ -76,7 +77,9 @@ void mdns_send() {
         return;
     }
 
-    udp_recv(pcb, mdns_recv, NULL);
+    udp_recv(pcb, mdns_recv, (void*)devices);
+
+    __func((void*)pcb);
 }
 
 void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
@@ -88,11 +91,16 @@ void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     struct dns_answer ans;
     struct dns_query qry;
     struct dns_srv_record srvr;
-    u16_t nquestions, nanswers;
+    u16_t nquestions, nanswers, txtLen, currPos, dataLen;
     char name[255] = {0};
+    char target[255] = {0};
+    char *txtData = NULL; 
     ip4_addr_t ip4addr;
+    ChromeCastDevices *devices = (ChromeCastDevices*)arg;
 
     if (p == NULL) return;
+
+    LWIP_DEBUGF(DNS_DEBUG, ("Received %d bytes\n", p->tot_len));
 
     /* is the dns message big enough ? */
     if (p->tot_len < (SIZEOF_DNS_HDR + SIZEOF_DNS_QUERY)) {
@@ -144,14 +152,14 @@ void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
             switch (PP_NTOHS(ans.type)) {
                 case DNS_RRTYPE_PTR:
                     res_idx = parse_dns_name(p, res_idx, name);
-                    LWIP_DEBUGF(DNS_DEBUG, ("name: %s\n", name));
+                    LWIP_DEBUGF(DNS_DEBUG, ("%s\n", name));
                     break;
                 case DNS_RRTYPE_A:
                     /* read the IP address after answer resource record's header */
                     if (pbuf_copy_partial(p, &ip4addr, sizeof(ip4_addr_t), res_idx) != sizeof(ip4_addr_t)) {
                         goto ignore_packet; /* ignore this packet */
                     }
-                    printf("IP address: %s\n", ipaddr_ntoa(&ip4addr));
+                    LWIP_DEBUGF(DNS_DEBUG, ("%s\n", ipaddr_ntoa(&ip4addr)));
                     res_idx = (u16_t)(res_idx + sizeof(ip4_addr_t));
                     break;
                 case DNS_RRTYPE_SRV:
@@ -160,12 +168,22 @@ void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                         goto ignore_packet;
                     }
                     res_idx = (u16_t)(res_idx + SIZEOF_DNS_SRV_RECORD);
-                    res_idx = parse_dns_name(p, res_idx, name);
-                    LWIP_DEBUGF(DNS_DEBUG, ("priority: %u, weight: %u, port: %u, target: %s",
-                            PP_NTOHS(srvr.priority), PP_NTOHS(srvr.weight), PP_NTOHS(srvr.port), name));
+                    res_idx = parse_dns_name(p, res_idx, target);
+                    LWIP_DEBUGF(DNS_DEBUG, ("%u, %u, %u, %s\n",
+                            PP_NTOHS(srvr.priority), PP_NTOHS(srvr.weight), PP_NTOHS(srvr.port), target));
                     break;
                 case DNS_RRTYPE_TXT:
-                    res_idx += PP_NTOHS(ans.len);
+                    txtLen = 0;
+                    currPos = 0; 
+                    dataLen = PP_NTOHS(ans.len);
+                    txtData = calloc(1, dataLen + 1);
+                    do {
+                        txtLen = pbuf_get_at(p, res_idx++);
+                        pbuf_copy_partial(p, &txtData[currPos], txtLen, res_idx);
+                        dataLen -= (txtLen + 1);
+                        res_idx += txtLen;
+                        currPos += txtLen;
+                    } while (dataLen > 0);
                     break;
                 default:
                     goto ignore_packet;
@@ -174,6 +192,8 @@ void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
             nanswers--;
         }
     }
+    addChromeCastDevice(devices, name, txtData, target, ip4addr, PP_NTOHS(srvr.port));
+    free(txtData);
 ignore_packet:
     /* deallocate memory and return */
     pbuf_free(p);

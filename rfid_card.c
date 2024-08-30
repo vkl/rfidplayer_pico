@@ -1,8 +1,10 @@
+#include <hardware/pio.h>
+#include <hardware/timer.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "rfid_card.h"
 #include "common.h"
-#include "player.h"
-#include "cast_controllers.h"
-#include "casts.h"
 
 // extern struct CastConnectionState cast;
 extern enum CardEvent cardEvent;
@@ -22,9 +24,9 @@ char *media3[3] = {
 };
 
 struct RfidCard cards[CARDS_COUNT] = {
-    {"3D002FDE19D5", "Bedroom Speaker", 0.5, media1, 1},
-    {"3D003066E883", "Bedroom Speaker", 0.5, media2, 1},
-    {"3D0030C96FAB", "Bedroom Speaker", 0.5, media3, 3}
+    {"3D002FDE19D5", "Bedroom speaker", 0.5, media1, 1},
+    {"3D003066E883", "Bedroom speaker", 0.5, media2, 1},
+    {"3D0030C96FAB", "Bedroom speaker", 0.5, media3, 3}
 };
 
 void rfid_card_control(uint gpio, uint32_t events) {

@@ -2,6 +2,7 @@
 #define _MDNS_HELPER_H_
 
 #include <lwip/udp.h>
+#include "casts.h"
 
 #define MDNS_PORT 5353
 #define MDNS_ADDR 224.0.0.251
@@ -36,8 +37,10 @@ struct dns_srv_record {
 } PACK_STRUCT_STRUCT;
 PACK_STRUCT_END
 
+typedef void (*callback) (void*arg);
+
 void mdns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     const ip_addr_t *addr, u16_t port);
-void mdns_send();
+void mdns_send(ChromeCastDevices *devices, callback __func);
 
 #endif
