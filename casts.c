@@ -2,6 +2,7 @@
 #include "casts.h"
 
 ChromeCastDevice *findChromeCastDevice(ChromeCastDevices *devices, const char *fname) {
+    printf("fname: %s\n", fname);
     for (u8_t i=0; i < devices->size; i++) {
         if (strstr(devices->chromecastDevice[i].txtData, fname))
             return &devices->chromecastDevice[i];

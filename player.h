@@ -8,6 +8,8 @@
 #define LED_GREEN_PIN 19
 #define LED_BLUE_PIN 20
 
+#define BTN_PIN 21
+
 #define GPIO_TOGGLE(pin)                   \
     do {                                   \
         gpio_put((pin), !gpio_get((pin))); \

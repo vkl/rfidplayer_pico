@@ -31,7 +31,7 @@ add_executable(rfidplayer
   main.c
   # tcp_common.c
   tls_client.c
-  cast_message.c
+  cast_control.c
   cast_controllers.c
   rfid_card.c
   player.c

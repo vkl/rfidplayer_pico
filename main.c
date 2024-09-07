@@ -10,6 +10,7 @@
 #include "cast_controllers.h"
 #include "rfid_card.h"
 #include "player.h"
+#include "common.h"
 
 #include "quadrature_encoder.pio.h"
 
@@ -58,8 +59,14 @@ int main()
     pio_add_program(pio, &quadrature_encoder_program);
     quadrature_encoder_program_init(pio, sm, ENCODER_PINA, 0);
     
-    struct CastConnectionState cast;
-
+    if (gpio_get(RFID_CARD_PRESENCE_PIN) == 1) {
+        DEBUG_PRINT("card is presence\n");
+        irq_set_enabled(UART1_IRQ, true);
+        busy_wait_ms(100);
+        gpio_pull_up(RFID_READER_RESET_PIN);
+        gpio_put(RFID_READER_RESET_PIN, 1);
+    }
+    
     while(true) {
         gpio_put(LED_GREEN_PIN, 1);
         gpio_put(LED_BLUE_PIN, 1);
@@ -68,8 +75,7 @@ int main()
             sleep_ms(100);
         }
         gpio_put(LED_RED_PIN, 1);
-        initCastConnectionState(&cast);
-        CastConnect(&cast, &devices);
+        CastConnect(&devices);
         sleep_ms(500);
     }
 

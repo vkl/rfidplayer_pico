@@ -32,7 +32,7 @@ struct RfidCard cards[CARDS_COUNT] = {
 void rfid_card_control(uint gpio, uint32_t events) {
     DEBUG_PRINT("events %d\n", events);
     if (events & (1 << 3)) {
-        DEBUG_PRINT("got event rise\n");
+        //DEBUG_PRINT("got event rise\n");
         irq_set_enabled(UART1_IRQ, true);
         cardIdIndex = 0;
         busy_wait_ms(100);
@@ -40,7 +40,7 @@ void rfid_card_control(uint gpio, uint32_t events) {
         gpio_put(RFID_READER_RESET_PIN, 1);
     } else if (events & (1 << 2)) {
         cardIdIndex = 0;
-        DEBUG_PRINT("got event fall\n");
+        //DEBUG_PRINT("got event fall\n");
         gpio_pull_down(RFID_READER_RESET_PIN);
         gpio_put(RFID_READER_RESET_PIN, 0);
         cardEvent = REMOVED;

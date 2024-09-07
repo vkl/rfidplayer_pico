@@ -4,15 +4,16 @@
 #include "lwip/altcp_tls.h"
 
 #include "common.h"
+#include "cast_control.h"
 #include "tls_client.h"
 
 #define MESSAGE_BUFFER 4096
 #define POLL_TCP_INTERVAL 60
 
 err_t tcp_recv_cb(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err) {
-    struct connectionState *cs = (struct connectionState *)arg;
+    struct ConnectionState *cs = (struct ConnectionState *)arg;
     if (p != NULL) {
-        // DEBUG_PRINT("recv total %d this buffer %d next %d err %d\n",  p->tot_len, p->len, p->next, err);
+        DEBUG_PRINT("recv total %d this buffer %d %p err %d\n",  p->tot_len, p->len, p->next, err);
         if (p->tot_len > 2) {
             pbuf_copy_partial(p, (cs->recvData) + (cs->start), p->tot_len, 0);
             cs->start += p->tot_len;
@@ -23,15 +24,17 @@ err_t tcp_recv_cb(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err) 
         if (p->next == 0) {
             cs->state = DATA_READY;
             cs->start = 0;
+            processData(cs->castState, cs->recvData);
         }
         pbuf_free(p);
+    } else {
+        cs->state = CONNECTED;
     }
     return ERR_OK;
 }
 
 err_t tcp_sent_cb(void *arg, struct altcp_pcb *tpcb, u16_t len) {
-    struct connectionState *cs = (struct connectionState *)arg;
-    DEBUG_PRINT("len: %d, sent %d\n", len, cs->item->msgLen);
+    struct ConnectionState *cs = (struct ConnectionState *)arg;
     return ERR_OK;
 }
 
@@ -43,68 +46,50 @@ void tcp_error_cb(void *arg, err_t err) {
 
 err_t tcp_poll_cb(void *arg, struct altcp_pcb *tpcb) {
     DEBUG_PRINT("Connection Closed \n");
-    struct connectionState *cs = (struct connectionState *)arg;
+    struct ConnectionState *cs = (struct ConnectionState *)arg;
     cs->state = CONNECTION_CLOSE;
     return ERR_OK;
 }
 
 err_t connected(void *arg, struct altcp_pcb *tpcb, err_t err) {
     DEBUG_PRINT("connected\n");
-    struct connectionState *cs = (struct connectionState *)arg;
+    struct ConnectionState *cs = (struct ConnectionState *)arg;
     cs->state = CONNECTED;
     return ERR_OK;
 }
 
-int pollConnection(struct connectionState **pcs) {
+int
+pollConnection(struct ConnectionState **pcs,
+        struct MessageQueueItem **msgQueueItem,
+        struct MessageItem *msgItem) {
+    
     if (*pcs==NULL) return 0;
-    struct connectionState *cs = *pcs;
+    
+    struct ConnectionState *cs = *pcs;
+    
     switch (cs->state) {
         case NOT_CONNECTED:
-            break;
         case CONNECTING:
-            break;
+        case PREPARE_DATA:
         case REQUEST_PENDING:
-            // DEBUG_PRINT("request pending\n");
+        case DATA_READY:
             break;
         case CONNECTED:
-            // DEBUG_PRINT("connected\n");
-            if (cs->item != NULL) {
-                cs->state = READY_TO_SEND;
+            if ((*msgQueueItem) != NULL) {
+                cs->state = PREPARE_DATA;
                 cs->start = 0;
             }
             break;
         case READY_TO_SEND:
-            DEBUG_PRINT("ready to send: %d\n", cs->item->msgLen);
-            // DEBUG_PRINT("msg %s %d\n", cs->item->msg,cs->item->msgLen);
-            // for (int i = 0; i < cs->item->msgLen; i++) {
-            //     printf("%02x ", cs->item->msg[i]);
-            // }
-            // printf("\n");
-            // sem_acquire_blocking(&semafore);
-            cs->state = CONNECTED;
             cyw43_arch_lwip_begin();
-            err_t err = altcp_write(cs->pcb, cs->item->msg, cs->item->msgLen, TCP_WRITE_FLAG_COPY);
+            err_t err = altcp_write(cs->pcb, msgItem->msg, msgItem->msgLen, TCP_WRITE_FLAG_COPY);
             err = altcp_output(cs->pcb);
             cyw43_arch_lwip_end();
-            if (cs->item->next != NULL) {
-                struct MessageItem *tmp = cs->item->next;
-                free(cs->item->msg);
-                cs->item->msg = NULL;
-                free(cs->item);
-                cs->item = tmp;
-            } else {
-                free(cs->item->msg);
-                cs->item->msg = NULL;
-                free(cs->item);
-                cs->item = NULL;
-            }
-            // sem_release(&semafore);
+            cs->state = CONNECTED;
+            free(msgItem->msg);
             break;
         case INITIAL_DATA_PACKAGE:
             cs->state = WAITING_MORE_DATA;
-            break;
-        case DATA_READY:
-            // DEBUG_PRINT("data ready\n");
             break;
         case CONNECTION_CLOSE:
             DEBUG_PRINT("connection close\n");
@@ -121,9 +106,9 @@ int pollConnection(struct connectionState **pcs) {
     return cs->state;
 }
 
-struct connectionState *newConnection() {
-    struct connectionState *cs = (struct connectionState*)
-                                malloc(sizeof(struct connectionState));
+struct ConnectionState *newConnection() {
+    struct ConnectionState *cs = (struct ConnectionState*)
+                                malloc(sizeof(struct ConnectionState));
 
     struct altcp_tls_config *tls_config =  altcp_tls_create_config_client(NULL, 0);
     cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_ANY); 
@@ -139,15 +124,13 @@ struct connectionState *newConnection() {
     return cs;
 }
 
-struct connectionState *doConnect(ip_addr_t ip, const char *hostname, int port) {
-    //ip_addr_t ip;
-    //ipaddr_aton(ipaddr, &ip);
-    struct connectionState *cs = newConnection();
+struct ConnectionState *doConnect(ip_addr_t ip, const char *hostname, int port) {
+    struct ConnectionState *cs = newConnection();
     mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), hostname);
     cyw43_arch_lwip_begin();
     altcp_connect(cs->pcb, &ip, port, connected);
     cyw43_arch_lwip_end();
     cs->state = CONNECTING;
-    cs->item = NULL;
     return cs;
 }
+
