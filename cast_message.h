@@ -1,86 +1,38 @@
 #ifndef _CAST_MESSAGE_H
 #define _CAST_MESSAGE_H
 
-#define HEARTBEAT_NS           "urn:x-cast:com.google.cast.tp.heartbeat"
-#define CONNECTION_NS          "urn:x-cast:com.google.cast.tp.connection"
-#define RECEIVER_NS            "urn:x-cast:com.google.cast.receiver"
-#define MEDIA_NS               "urn:x-cast:com.google.cast.media"
+#define PING_PAYLOAD "{\"type\":\"PING\"}"
 
-#define DEFAULT_SOURCE_ID      "sender-0"
-#define DEFAULT_DESTINATION_ID "receiver-0"
+#define PONG_PAYLOAD "{\"type\":\"PONG\"}"
 
-#define APPBACKDROP            "E8C28D3C"
-#define APPMEDIA               "CC1AD845"
-#define APPURL                 "5CB45E5A"
-#define APPYOUTUBEMUSIC        "2DB7CC49"
-#define APPYOUTUBE             "233637DE"
+#define GET_STATUS_PAYLOAD "{\"type\":\"GET_STATUS\",\"requestId\":%d}"
 
-#include <stdbool.h> 
+#define CONNECT_PAYLOAD "{\"type\":\"CONNECT\"}"
 
-enum CastMessageType {
-    PING = 1,
-    PONG,
-    CONNECT,
-    CLOSE,
-    GET_STATUS,
-    RECEIVER_STATUS,
-    LAUNCH,
-    MEDIA_STATUS,
-    GET_MEDIA_STATUS,
-    LOAD,
-    QUEUE_INSERT, 
-    STOP,
-    SET_VOLUME
-};
+#define CLOSE_PAYLOAD "{\"type\":\"CLOSE\"}"
 
-enum PlayerState {
-    IDLE,
-    BUFFERING,
-    PAUSED,
-    PLAYING
-};
+#define RECEIVER_STATUS_PAYLOAD "{\"type\":\"RECEIVER_STATUS\",\"requestId\":%d}"
 
-struct Volume {
-    float level;
-    bool muted;
-};
+#define LAUNCH_PAYLOAD "{\"type\":\"LAUNCH\",\"requestId\":%d,\"appId\":\"%s\"}"
 
-struct MediaStatus {
-    int mediaSessionId;
-    enum PlayerState playerState;
-    struct Volume volume;
-};
+#define MEDIA_STATUS_PAYLOAD "{\"type\":\"GET_STATUS\",\"requestId\":%d,\"mediaSessionId\":%d}"
 
-// struct Payload {
-//     enum CastMessageType Type;
-//     uint8_t RequestId;
-// };
+#define LOAD_PAYLOAD "{\"type\":\"LOAD\",\"requestId\":%d,\"media\":%s}"
 
-// struct Application {
-//     char *AppID;
-// 	char *DisplayName;
-// 	struct Namespace **Namespaces;
-// 	char *SessionID;
-// 	char *StatusText;
-// 	char *TransportId;
-// };
+#define QUEUE_INSERT_PAYLOAD "{\"type\":\"QUEUE_INSERT\",\"requestId\":%d,\"items\":[%s],\"mediaSessionId\":%d,\"currentTime\":%d,\"autoPlay\":%s}"
 
-// struct Namespace {
-//     char *Name;
-// };
+#define QUEUE_NEXT_PAYLOAD "{\"type\":\"QUEUE_NEXT\",\"requestId\":%d,\"mediaSessionId\":%d}"
 
-// struct Volume {
-//     char *controlType;
-//     float level;
-//     bool muted;
-//     float stepInterval;
-// };
+#define QUEUE_PREV_PAYLOAD "{\"type\":\"QUEUE_PREV\",\"requestId\":%d,\"mediaSessionId\":%d}"
 
-// struct ReceiverStatus {
-//     struct Application **applications;
-//     struct Volume volume;
-// };
+#define STOP_PAYLOAD "{\"type\":\"STOP\",\"requestId\":%d,\"mediaSessionId\":%d}"
 
-// char *payload(enum CastMessageType msgType);
+#define PAUSE_PAYLOAD "{\"type\":\"PAUSE\",\"requestId\":%d,\"mediaSessionId\":%d}"
+
+#define PLAY_PAYLOAD "{\"type\":\"PLAY\",\"requestId\":%d,\"mediaSessionId\":%d}"
+
+#define MEDIA_ITEM "{\"media\":%s,\"autoPlay\":%s,\"startTime\":%d,\"preloadTime\":%d}"
+
+#define SET_VOLUME_PAYLOAD "{\"type\":\"SET_VOLUME\",\"requestId\":%d,\"volume\":{\"level\":%f,\"muted\":false}}"
 
 #endif

@@ -1,8 +1,8 @@
 #ifndef _TLS_CLIENT_H
 #define _TLS_CLIENT_H
 
-#include <stdlib.h>
 #include <lwip/inet.h>
+#include <cast_control.h>
 
 #define NOT_CONNECTED        0
 #define CONNECTING           1
@@ -13,27 +13,19 @@
 #define WAITING_MORE_DATA    6
 #define DATA_READY           7
 #define CONNECTION_CLOSE     8
+#define PREPARE_DATA         9
 
-// typedef uint8_t (*processingData_fn)(unsigned char *data);
-// typedef void (*processingData_fn)(unsigned char *data, void *arg);
-
-struct MessageItem {
-    // enum CastMessageType castType;
-    struct MessageItem *next;
-    unsigned char *msg;
-    size_t msgLen;
-};
-
-struct connectionState {
+struct ConnectionState {
     int state;
     struct altcp_pcb *pcb;
     unsigned char *recvData;
-    struct MessageItem *item;
     int start;
-    // processingData_fn processingData;
+    struct CastState *castState;
 };
 
-int pollConnection(struct connectionState **pcs);
-struct connectionState *doConnect(ip_addr_t ip, const char *hostname, int port); //, processingData_fn processingData);
+int pollConnection(struct ConnectionState **pcs,
+        struct MessageQueueItem **msgQueueItem,
+        struct MessageItem *msgItem);
+struct ConnectionState *doConnect(ip_addr_t ip, const char *hostname, int port);
 
 #endif
