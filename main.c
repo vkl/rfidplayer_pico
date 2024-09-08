@@ -18,6 +18,7 @@ PIO pio = pio0;
 const uint sm = 0;
 
 enum CardEvent cardEvent = REMOVED;
+enum PlayerBtnEvent btnEvent = 0;
 struct RfidCard *rfidCard = NULL;
 
 void wait_devices_discovery(void *arg) {

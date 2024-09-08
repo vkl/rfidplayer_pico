@@ -1,17 +1,21 @@
-#include <hardware/pio.h>
-#include <hardware/timer.h>
 #include <string.h>
 #include <stdio.h>
+#include <hardware/pio.h>
+#include <hardware/timer.h>
 
+#include "player.h"
 #include "rfid_card.h"
 #include "common.h"
 
 // extern struct CastConnectionState cast;
 extern enum CardEvent cardEvent;
+extern enum PlayerBtnEvent btnEvent;
 extern struct RfidCard *rfidCard;
 
 static char cardId[15];
 static uint8_t cardIdIndex = 0;
+
+volatile uint64_t start, current;
 
 #define CARDS_COUNT 3
 
@@ -30,20 +34,44 @@ struct RfidCard cards[CARDS_COUNT] = {
 };
 
 void rfid_card_control(uint gpio, uint32_t events) {
-    DEBUG_PRINT("events %d\n", events);
-    if (events & (1 << 3)) {
-        //DEBUG_PRINT("got event rise\n");
-        irq_set_enabled(UART1_IRQ, true);
-        cardIdIndex = 0;
-        busy_wait_ms(100);
-        gpio_pull_up(RFID_READER_RESET_PIN);
-        gpio_put(RFID_READER_RESET_PIN, 1);
-    } else if (events & (1 << 2)) {
-        cardIdIndex = 0;
-        //DEBUG_PRINT("got event fall\n");
-        gpio_pull_down(RFID_READER_RESET_PIN);
-        gpio_put(RFID_READER_RESET_PIN, 0);
-        cardEvent = REMOVED;
+    DEBUG_PRINT("gpio %d, events %d\n", gpio, events);
+    if (gpio == RFID_CARD_PRESENCE_PIN) {
+        if (events == GPIO_IRQ_EDGE_RISE) {
+            //DEBUG_PRINT("got event rise\n");
+            irq_set_enabled(UART1_IRQ, true);
+            gpio_set_irq_enabled_with_callback(
+                BTN_PIN,
+                GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
+                true, &rfid_card_control);
+            cardIdIndex = 0;
+            busy_wait_ms(100);
+            gpio_pull_up(RFID_READER_RESET_PIN);
+            gpio_put(RFID_READER_RESET_PIN, 1);
+        } else if (events == GPIO_IRQ_EDGE_FALL) {
+            gpio_set_irq_enabled_with_callback(
+                BTN_PIN,
+                GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
+                false, &rfid_card_control);
+            cardIdIndex = 0;
+            //DEBUG_PRINT("got event fall\n");
+            gpio_pull_down(RFID_READER_RESET_PIN);
+            gpio_put(RFID_READER_RESET_PIN, 0);
+            cardEvent = REMOVED;
+        }
+    }
+    if (gpio == BTN_PIN) {
+        if (events == GPIO_IRQ_EDGE_RISE) {
+            start = time_us_64();
+            //btnEvent = PUSH;
+        } else if (events == GPIO_IRQ_EDGE_FALL) {
+            current = time_us_64();
+            if (current - start < 200000) {
+                btnEvent = PUSH;
+            } else {
+                btnEvent = LONG_PUSH;
+            }
+            start = 0;
+        }
     }
 }
 

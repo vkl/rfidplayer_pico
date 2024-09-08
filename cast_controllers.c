@@ -15,6 +15,7 @@ extern PIO pio;
 extern const uint sm;
 extern struct RfidCard *rfidCard;
 extern enum CardEvent cardEvent;
+extern enum PlayerBtnEvent btnEvent;
 
 int old_value = 0;
 int new_value = 0;
@@ -51,7 +52,7 @@ void CastConnect(ChromeCastDevices *devices) {
     queueMessage(&msgQueueItem, CONNECT, NULL, NONE);
     queueMessage(&msgQueueItem, LAUNCH, NULL, NONE);
     queueMessage(&msgQueueItem, CONNECT, NULL, RECEIVER_STATUS);
-    queueMessage(&msgQueueItem, GET_MEDIA_STATUS, NULL, NONE);
+    //queueMessage(&msgQueueItem, GET_MEDIA_STATUS, NULL, NONE);
     queueMessage(&msgQueueItem, LOAD, &data, NONE);
     if (data.size > 1) {
         queueMessage(&msgQueueItem, QUEUE_INSERT, &data, MEDIA_STATUS);
@@ -117,6 +118,19 @@ void CastConnect(ChromeCastDevices *devices) {
         } else if (castState.mediaStatus.playerState == PAUSED) {
             gpio_put(LED_GREEN_PIN, 1);
             gpio_put(LED_BLUE_PIN, 0);
+        }
+
+        // Button events
+        if (btnEvent == PUSH) {
+            btnEvent = 0;
+            if (castState.mediaStatus.playerState == PLAYING) {
+                queueMessage(&msgQueueItem, PAUSE, NULL, NONE);
+            } else if (castState.mediaStatus.playerState == PAUSED) {
+                queueMessage(&msgQueueItem, PLAY, NULL, NONE);
+            }
+        } else if (btnEvent == LONG_PUSH) {
+            btnEvent = 0;
+            queueMessage(&msgQueueItem, QUEUE_NEXT, NULL, NONE);
         }
 
         // check encoder value
