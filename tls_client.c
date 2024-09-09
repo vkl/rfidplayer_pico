@@ -78,9 +78,11 @@ pollConnection(struct ConnectionState **pcs,
             if ((*msgQueueItem) != NULL) {
                 cs->state = PREPARE_DATA;
                 cs->start = 0;
+                printf("prepare data\n");
             }
             break;
         case READY_TO_SEND:
+            printf("ready to send\n");
             cyw43_arch_lwip_begin();
             err_t err = altcp_write(cs->pcb, msgItem->msg, msgItem->msgLen, TCP_WRITE_FLAG_COPY);
             err = altcp_output(cs->pcb);

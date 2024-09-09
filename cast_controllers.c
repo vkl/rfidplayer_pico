@@ -23,6 +23,7 @@ int delta_value = 0;
 
 static void loadMedia(struct MessageData *data, char **media, uint16_t size); 
 static void freeMedia(struct MessageData *data); 
+static void freeMsgQueue(struct MessageQueueItem **msgQueueItem);
 
 void CastConnect(ChromeCastDevices *devices) {
     struct ConnectionState *pcs;
@@ -34,7 +35,8 @@ void CastConnect(ChromeCastDevices *devices) {
     struct CastState castState = {
         .senderId = DEFAULT_SOURCE_ID,
         .appId = APPMEDIA,
-        .requestId = 1
+        .requestId = 1,
+        .flagType = 0
     };
     strcpy(castState.receiverId, DEFAULT_DESTINATION_ID);
     
@@ -44,9 +46,11 @@ void CastConnect(ChromeCastDevices *devices) {
                 rfidCard->ChromeCastName);
         return;
     }
+    printf("Connect to %s:%d\n", device->hostname, device->port);
     pcs = doConnect(device->ipaddr, device->hostname, device->port);
     pcs->castState = &castState;
 
+    printf("Load media\n");
     loadMedia(&data, rfidCard->Media, rfidCard->MediaCount);
     
     queueMessage(&msgQueueItem, CONNECT, NULL, NONE);
@@ -75,9 +79,8 @@ void CastConnect(ChromeCastDevices *devices) {
             pcs->state = CONNECTION_CLOSE;
         
         } else if (cardEvent == REMOVED) {
-            freeMedia(&data);
             queueMessage(&msgQueueItem, STOP, NULL, NONE);
-            queueMessage(&msgQueueItem, CLOSE, NULL, NONE);
+            queueMessage(&msgQueueItem, CLOSE, NULL, RECEIVER_STATUS);
             cardEvent = UNKNOWN;
         }
 
@@ -156,6 +159,9 @@ void CastConnect(ChromeCastDevices *devices) {
             queueMessage(&msgQueueItem, SET_VOLUME, NULL, NONE);
         }
     }
+    printf("stop player\n");
+    freeMsgQueue(&msgQueueItem);
+    freeMedia(&data);
 }
 
 static void loadMedia(struct MessageData *data, char **media, uint16_t size) {
@@ -171,5 +177,15 @@ static void freeMedia(struct MessageData *data) {
         free(data->items[i]);
     }
     free(data->items);
+}
+
+static void freeMsgQueue(struct MessageQueueItem **msgQueueItem) {
+    struct MessageQueueItem *msgQueue = (*msgQueueItem);
+    struct MessageQueueItem *tmp = NULL;
+    while (msgQueue != NULL) {
+        tmp = msgQueue;
+        msgQueue = msgQueue->next;
+        free(tmp);
+    }
 }
 
