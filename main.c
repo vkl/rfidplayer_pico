@@ -14,48 +14,25 @@
 
 #include "quadrature_encoder.pio.h"
 
+#define CYW43_DRV_TIMEOUT 120000000 // 2 minutes
+
 PIO pio = pio0;
 const uint sm = 0;
+
+extern cyw43_t cyw43_state;
 
 enum CardEvent cardEvent = REMOVED;
 enum PlayerBtnEvent btnEvent = 0;
 struct RfidCard *rfidCard = NULL;
 
-void wait_devices_discovery(void *arg) {
-    struct udp_pcb *pcb = (struct udp_pcb*)arg;
-    gpio_put(LED_GREEN_PIN, 1);
-    gpio_put(LED_RED_PIN, 1);
-    for(u16_t c=0; c < 100; c++) {
-        sleep_ms(50);
-        if (c % 6 == 0) 
-            GPIO_TOGGLE(LED_BLUE_PIN); 
-    }
-    gpio_put(LED_BLUE_PIN, 1);
-    udp_disconnect(pcb);
-    udp_remove(pcb);
-}
+static void wait_devices_discovery(void *arg);
+static void networkInit(ChromeCastDevices *devices);
 
 int main()
 {
     stdio_init_all();
     rfid_uart_init();
     player_init();
-
-    connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
-
-    ChromeCastDevices devices;
-    initChromeCastDevices(&devices, 10);
-    mdns_send(&devices, wait_devices_discovery);
-
-    char ipaddr[16] = {0};
-    for (u8_t c=0; c < devices.size; c++) {
-        printf("name: %s, hostname: %s, ip: %s\n\t%s\n",
-                devices.chromecastDevice[c].name,
-                devices.chromecastDevice[c].hostname,
-                ipaddr_ntoa(&devices.chromecastDevice[c].ipaddr),
-                devices.chromecastDevice[c].txtData);
-        sleep_ms(100);
-    }
 
     pio_add_program(pio, &quadrature_encoder_program);
     quadrature_encoder_program_init(pio, sm, ENCODER_PINA, 0);
@@ -67,15 +44,25 @@ int main()
         gpio_pull_up(RFID_READER_RESET_PIN);
         gpio_put(RFID_READER_RESET_PIN, 1);
     }
+
+    ChromeCastDevices devices;
+    uint64_t startTime, currentTime;
     
     while(true) {
         gpio_put(LED_GREEN_PIN, 1);
         gpio_put(LED_BLUE_PIN, 1);
         gpio_put(LED_RED_PIN, 0);
+        startTime = time_us_64();
         while(cardEvent != READY || rfidCard == NULL) {
             sleep_ms(100);
+            currentTime = time_us_64();
+            if (currentTime - startTime > CYW43_DRV_TIMEOUT) {
+                cyw43_arch_deinit();    
+                startTime = time_us_64();
+            }
         }
         gpio_put(LED_RED_PIN, 1);
+        networkInit(&devices);
         CastConnect(&devices);
         sleep_ms(500);
     }
@@ -83,5 +70,37 @@ int main()
     cyw43_arch_deinit();
     freeChromeCastDevices(&devices);
     return 0;
+}
+
+static void networkInit(ChromeCastDevices *devices) {
+
+    connectWiFi(CYW43_COUNTRY_USA, WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
+
+    initChromeCastDevices(devices, 10);
+    mdns_send(devices, wait_devices_discovery);
+
+    char ipaddr[16] = {0};
+    for (u8_t c=0; c < devices->size; c++) {
+        printf("name: %s, hostname: %s, ip: %s\n\t%s\n",
+                devices->chromecastDevice[c].name,
+                devices->chromecastDevice[c].hostname,
+                ipaddr_ntoa(&devices->chromecastDevice[c].ipaddr),
+                devices->chromecastDevice[c].txtData);
+        sleep_ms(100);
+    }
+}
+
+static void wait_devices_discovery(void *arg) {
+    struct udp_pcb *pcb = (struct udp_pcb*)arg;
+    gpio_put(LED_GREEN_PIN, 1);
+    gpio_put(LED_RED_PIN, 1);
+    for(u16_t c=0; c < 100; c++) {
+        sleep_ms(50);
+        if (c % 6 == 0) 
+            GPIO_TOGGLE(LED_BLUE_PIN); 
+    }
+    gpio_put(LED_BLUE_PIN, 1);
+    udp_disconnect(pcb);
+    udp_remove(pcb);
 }
 

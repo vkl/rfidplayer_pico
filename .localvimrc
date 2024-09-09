@@ -23,6 +23,12 @@ function! LoadProgram()
     call feedkeys("exit\<CR>")
 endfunction
 
+function! Debug()
+    execute 'terminal'
+    call feedkeys("ls -ltr\<CR>")
+endfunction
+
+nnoremap <leader>1 :call Debug()<CR>
 nnoremap <F5> :call RunCMake()<CR>
 nnoremap <F6> :call LoadProgram()<CR>
 

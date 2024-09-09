@@ -94,12 +94,16 @@ done:
 
 bool sendMessage(struct MessageQueueItem **msgQueueItem, struct MessageItem *msgItem, struct CastState *cs) {
     
-    if ((*msgQueueItem) == NULL) return false;
+    if ((*msgQueueItem) == NULL) {
+        printf("queue is empty\n");
+        return false;
+    }
 
     bool checkType = (*msgQueueItem)->waitFor == NONE || 
         (1 << (*msgQueueItem)->waitFor) & cs->flagType;
 
     if (!checkType) {
+        printf("waiting for %s\n", TYPE_TO_STR((*msgQueueItem)->waitFor));
         return false;
     } else {
         cs->flagType &= ~(1 << (*msgQueueItem)->waitFor);
@@ -285,7 +289,7 @@ end:
 void
 queueMessage(struct MessageQueueItem **item, enum CastMessageType msgType,
         struct MessageData *data, enum CastMessageType waitFor) {
-    //printf("add message '%s' to queue\n", TYPE_TO_STR(msgType));
+    printf("add message '%s' to queue\n", TYPE_TO_STR(msgType));
     if (*item == NULL) {
         (*item) = (struct MessageQueueItem*)calloc(1, sizeof(struct MessageQueueItem));
         if ((*item) == NULL) {

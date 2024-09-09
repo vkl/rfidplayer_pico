@@ -28,5 +28,6 @@ struct RfidCard {
 
 void rfid_card_control(uint gpio, uint32_t events);
 void rfid_uart_init();
+void read_flash();
 
 #endif
